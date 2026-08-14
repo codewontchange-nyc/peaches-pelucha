@@ -248,6 +248,14 @@ function App({ client, onResetCreds }) {
   const [loaded, setLoaded] = useState(false);
   const [everOk, setEverOk] = useState(false);   // a load has succeeded at least once
   const [err, setErr] = useState("");
+  // Mobile radios can hang a request without erroring — after 8s of boot
+  // spinner, offer a retry instead of spinning forever.
+  const [slowBoot, setSlowBoot] = useState(false);
+  useEffect(() => {
+    if (loaded) return;
+    const t = setTimeout(() => setSlowBoot(true), 8000);
+    return () => clearTimeout(t);
+  }, [loaded]);
 
   const [meId, setMeId] = useState(localStorage.getItem(LS.me) || "");
   const [tab, setTab] = useState("score");
@@ -413,7 +421,9 @@ function App({ client, onResetCreds }) {
         });
     };
     subscribe();
-    const wake = () => { if (document.visibilityState === "visible") loadAll(); };
+    // visibilitychange + focus + online all fire together when the phone wakes;
+    // route them through the debouncer so one open = ONE reload, not three.
+    const wake = () => { if (document.visibilityState === "visible") scheduleLoad(); };
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("focus", wake);
     window.addEventListener("online", wake);
@@ -471,19 +481,23 @@ function App({ client, onResetCreds }) {
         return (txt.match(/pp-v(\d+)/) || [])[1] || null;
       } catch { return null; }
     };
-    const check = async (atWake) => {
+    const check = async (wakeAt) => {
       const v = await ver();
       if (!v) return;
       if (bootVer === null) { bootVer = v; return; }
       if (v === bootVer || applied) return;
       applied = true;
       try { (await navigator.serviceWorker?.getRegistration())?.update(); } catch {}
-      if (atWake && !window.__ppDragging) location.reload();
+      // Auto-reload only in the first beat after opening — before the person is
+      // reading or mid-tap. If the version fetch came back late (slow network),
+      // a surprise reload feels broken; fall back to the one-tap banner.
+      const fresh = wakeAt && Date.now() - wakeAt < 1500;
+      if (fresh && !window.__ppDragging) location.reload();
       else setUpdateReady(true);
     };
     check();                                     // record the booted version
     window.__ppCheckUpdate = check;              // debug/test hook
-    const wake = () => { if (document.visibilityState === "visible") check(true); };
+    const wake = () => { if (document.visibilityState === "visible") check(Date.now()); };
     document.addEventListener("visibilitychange", wake);
     const iv = setInterval(() => { if (document.visibilityState === "visible") check(false); }, 5 * 60 * 1000);
     return () => { document.removeEventListener("visibilitychange", wake); clearInterval(iv); };
@@ -500,7 +514,10 @@ function App({ client, onResetCreds }) {
   /* ---- data actions (all log to state via loadAll on realtime) ---- */
   const api = useMemo(() => makeApi(client, loadAll, flash), [client, loadAll, flash]);
 
-  if (err && !everOk) {
+  // Full-screen error only when we have NOTHING to show. If the IndexedDB
+  // shell already painted (players present), keep the app up — the wake/online
+  // listeners re-sync the moment the connection returns.
+  if (err && !everOk && !players.length) {
     const needsSchema = /could not find the table|does not exist|schema cache/i.test(err);
     return html`<div class="login"><div style="font-size:40px">😕</div><h1>Connection trouble</h1>
       ${needsSchema
@@ -510,7 +527,11 @@ function App({ client, onResetCreds }) {
       <button class="btn" onClick=${loadAll}>Try again</button>
       <button class="linkbtn" onClick=${onResetCreds}>Change connection settings</button></div>`;
   }
-  if (!loaded) return html`<div class="boot"><div class="boot-heart">💗</div><div class="boot-text">Loading…</div></div>`;
+  if (!loaded) return html`<div class="boot"><div class="boot-heart">💗</div><div class="boot-text">Loading…</div>
+    ${slowBoot && html`<div style="margin-top:14px;text-align:center">
+      <div class="tiny muted" style="margin-bottom:8px">Slow connection…</div>
+      <button class="btn" onClick=${loadAll}>Try again</button>
+    </div>`}</div>`;
 
   if (!me) {
     return html`<${Login} players=${players} onPick=${pickMe}
