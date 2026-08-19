@@ -47,7 +47,9 @@ const TAB_META = {
 // on top. Falls back to the plain cool gradient until there are photos.
 const COLLAGE_TILES = 1;   // one big photo at a time, full mobile height
 function PhotoBackdrop({ client }) {
-  const [photos, setPhotos] = useState(null);
+  // Seed from the last fetched set so the collage paints on the first frame
+  // (no gradient → photos flash); the fresh list replaces it moments later.
+  const [photos, setPhotos] = useState(() => { try { return JSON.parse(localStorage.getItem("pp.bgphotos") || "null"); } catch { return null; } });
   // two stacked collage layers that CROSSFADE on rotation (no flash to blank).
   const [view, setView] = useState({ layers: [null, null], front: 0 });
   useEffect(() => {
@@ -60,7 +62,8 @@ function PhotoBackdrop({ client }) {
           try { return client.storage.from("memories").getPublicUrl(d.thumb_path || d.path).data.publicUrl; }
           catch { return null; }
         }).filter(Boolean);
-        setPhotos(urls);
+        setPhotos((prev) => (JSON.stringify(prev) === JSON.stringify(urls) ? prev : urls));   // identical → no re-layout
+        try { localStorage.setItem("pp.bgphotos", JSON.stringify(urls)); } catch {}
       });
     return () => { live = false; };
   }, [client]);
@@ -474,7 +477,7 @@ function App({ client, onResetCreds }) {
   // Nobody ever has to force-close the PWA to get updates again.
   const [updateReady, setUpdateReady] = useState(false);
   useEffect(() => {
-    let bootVer = null, applied = false;
+    let bootVer = null, applied = false, hiddenAt = null;
     const ver = async () => {
       try {
         const txt = await fetch("sw.js", { cache: "no-store" }).then((r) => (r.ok ? r.text() : ""));
@@ -491,13 +494,16 @@ function App({ client, onResetCreds }) {
       // Auto-reload only in the first beat after opening — before the person is
       // reading or mid-tap. If the version fetch came back late (slow network),
       // a surprise reload feels broken; fall back to the one-tap banner.
+      // …and only after a real absence (≥ 2 min hidden). A quick app-switch
+      // that came back to a sudden reload read as a glitch, not an update.
       const fresh = wakeAt && Date.now() - wakeAt < 1500;
-      if (fresh && !window.__ppDragging) location.reload();
+      const longAway = hiddenAt && wakeAt && wakeAt - hiddenAt > 120000;
+      if (fresh && longAway && !window.__ppDragging) location.reload();
       else setUpdateReady(true);
     };
     check();                                     // record the booted version
     window.__ppCheckUpdate = check;              // debug/test hook
-    const wake = () => { if (document.visibilityState === "visible") check(Date.now()); };
+    const wake = () => { if (document.visibilityState === "visible") check(Date.now()); else hiddenAt = Date.now(); };
     document.addEventListener("visibilitychange", wake);
     const iv = setInterval(() => { if (document.visibilityState === "visible") check(false); }, 5 * 60 * 1000);
     return () => { document.removeEventListener("visibilitychange", wake); clearInterval(iv); };
@@ -562,9 +568,10 @@ function App({ client, onResetCreds }) {
 
       ${err && html`<div class="banner" style="background:#ffeef1;color:#b00020">⚠️ ${err}</div>`}
 
-      <div class=${`swipe-wrap ${navDir > 0 ? "pane-from-r" : "pane-from-l"}`} key=${tab}
+      <div class="swipe-wrap" key=${tab}
         ref=${swipeRef} onPointerDown=${onSwipeDown} onPointerMove=${onSwipeMove}
         onPointerUp=${onSwipeUp} onPointerCancel=${onSwipeUp}>
+        <${Settle} dir=${navDir} key=${tab}>
         <${ErrorBoundary} key=${tab}>
           ${tab === "score" && html`<${ScoreTab} ...${ctx} />`}
           ${tab === "plans" && html`<${PlansTab} client=${client} me=${me} players=${players} flash=${flash} />`}
@@ -577,6 +584,7 @@ function App({ client, onResetCreds }) {
           <//>`}
           ${tab === "joinme" && html`<${JoinMe} client=${client} me=${me} players=${players} flash=${flash} />`}
           ${tab === "more" && html`<${MoreTab} ...${ctx} onResetCreds=${onResetCreds} />`}
+        <//>
         <//>
       </div>
 
@@ -770,6 +778,27 @@ function BirthdayBanner({ me, players }) {
 // The Score tab is now the live, playable Phase 10 game (see game.js), with the
 // The home screen: current game (prominent) → lifetime line → his & hers
 // Cancer horoscopes → daily scripture → Date Night Roulette.
+
+/* Settle: a pane's cards each fetch on their own, so without this they'd pop in
+   one by one in random spots. Hold the pane invisible until its DOM goes quiet
+   (≈160ms with no mutations, 800ms max), THEN play the slide-in — so the
+   animation always shows a complete page instead of an assembling one. */
+function Settle({ children, dir }) {
+  const ref = useRef(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    let quiet = null, done = false, mo = null;
+    const fire = () => { if (done) return; done = true; setReady(true); try { mo && mo.disconnect(); } catch {} clearTimeout(quiet); clearTimeout(max); };
+    const kick = () => { clearTimeout(quiet); quiet = setTimeout(fire, 160); };
+    try { mo = new MutationObserver(kick); mo.observe(el, { childList: true, subtree: true, characterData: true, attributes: true }); } catch {}
+    const max = setTimeout(fire, 800);
+    kick();
+    return () => { try { mo && mo.disconnect(); } catch {} clearTimeout(quiet); clearTimeout(max); };
+  }, []);
+  return html`<div ref=${ref} class=${ready ? (dir > 0 ? "pane-from-r" : "pane-from-l") : "settling"}>${children}</div>`;
+}
+
 function ScoreTab(ctx) {
   // The home page: Phase 10 at the top, then lifetime, horoscopes, scripture,
   // and the date roulette.

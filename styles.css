@@ -987,6 +987,7 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
    block for Phase 10's position:fixed board and trap it inside the shell. The
    board must stay truly full-screen. */
 .swipe-wrap { position: relative; touch-action: pan-y; min-height: 60vh; }
+.settling { opacity: 0; }
 .pane-from-r { animation: paneFromR .44s var(--ease-out); }
 .pane-from-l { animation: paneFromL .44s var(--ease-out); }
 @keyframes paneFromR { from { opacity: 0; transform: translateX(40px) scale(.984); } to { opacity: 1; transform: none; } }

@@ -233,8 +233,15 @@ export function DailyShare({ client, me, players }) {
 
   const startDay = () => { try { localStorage.setItem("pp.daily." + day, "1"); } catch {} setSeen(true); };
 
-  if (row === undefined || row === null) return null;    // loading or unavailable → don't gate
-  if (both && seen) return null;                         // done & acknowledged for today
+  if (seen) return null;                                  // already started today's day on this device
+  if (row === null) return null;                          // unavailable → fail open, never lock people out
+  if (both && seen) return null;                          // done & acknowledged for today
+  if (row === undefined) {                                // loading: hold a calm, opaque screen so the app
+    // (the app underneath never flashes before the gate appears)
+    return createPortal(html`<div class="dailyfull lock">
+      <div class="daily-inner"><div class="daily-eyebrow">before today begins · ${niceDate(day)}</div><div class="daily-sun">☀️</div></div>
+    </div>`, document.body);
+  }
 
   const pinfo = (id) => players.find((p) => p.id === id) || { emoji: "❔", name: "?" };
 

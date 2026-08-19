@@ -11,7 +11,22 @@
 const VAPID_KEYS = {
   default:                "BGqzDqmIYJlLXRc3NkUZXwfC2995uEgymoJwZUZnBbe3r73nBY8L01w9UI8FTNICdq4vT8Znipm_LttH8tZD-FM", // Peaches & Pelucha
   tglwpgktertvyumhhkal:   "BM41zNFmQHzswaepzUMVWHLaJeMrp2s0NP9GVc6lwEL6WBE6tckb2QeBEMRPrIAij8VtszSzIXa5rReWJHt2r20", // Mayo & Briuna
+  hodyxntdqtpsuppkbcra:   "BNKEzm8ybUyZ3vueHwCdhlT8lOeEVJARGXp5z5Up9A8lTb_O6_E7PCC5Gd46uoJNBsvqtJCxlQencR_BbFLXHG4", // Peaches & Pelucha — owned project (new pair, 2026-08-19)
 };
+
+// A subscription made under a different VAPID key (e.g. the pre-migration
+// project's) can't be signed by the current server — detect + replace it.
+function subMatchesKey(sub, publicKey) {
+  try {
+    const k = sub.options && sub.options.applicationServerKey;
+    if (!k) return true;                                   // unknown → assume fine
+    const cur = keyBytes(publicKey);
+    const have = new Uint8Array(k);
+    if (have.length !== cur.length) return false;
+    for (let i = 0; i < cur.length; i++) if (have[i] !== cur[i]) return false;
+    return true;
+  } catch { return true; }
+}
 // Resolved at call time (not import time) — window.PP_CREDS is set once the
 // client connects, so this reflects whichever couple's backend is active.
 function vapidPublicKey() {
@@ -70,6 +85,7 @@ export async function ensurePush(client, playerId) {
     const reg = await navigator.serviceWorker.getRegistration();
     if (!reg) return;
     let sub = await reg.pushManager.getSubscription();
+    if (sub && !subMatchesKey(sub, vapidPublicKey())) { try { await sub.unsubscribe(); } catch {} sub = null; }
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,

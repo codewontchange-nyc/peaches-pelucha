@@ -10,7 +10,7 @@ const html = htm.bind(h);
    on a server-side secret and returns memories + their AI day-stories. No nav,
    no uploads, no edits — just the day-by-day story. */
 
-const FN = "https://ddaidwngxdbvfbchfixn.supabase.co/functions/v1";
+const FN = "https://hodyxntdqtpsuppkbcra.supabase.co/functions/v1";
 const FEED = FN + "/family-feed";
 const COMMENT = FN + "/family-comment";
 const PASS_KEY = "pp_family_pass";
