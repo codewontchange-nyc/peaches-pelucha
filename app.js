@@ -206,7 +206,8 @@ function Root() {
 
   if (DEMO) {
     if (!client) return html`<div class="boot"><div class="boot-heart">💗</div><div class="boot-text">Demo…</div></div>`;
-    return html`<${App} client=${client} onResetCreds=${() => { location.search = ""; }} />`;
+    try { if (new URLSearchParams(location.search).has("demo")) window.__ppClient = client; } catch {}   // console access for demo walkthroughs
+  return html`<${App} client=${client} onResetCreds=${() => { location.search = ""; }} />`;
   }
   if (!creds.url || !creds.key) {
     return html`<${SetupScreen} onSave=${saveCreds} error=${credError} />`;
@@ -214,6 +215,7 @@ function Root() {
   if (!client) {
     return html`<${SetupScreen} onSave=${saveCreds} error=${credError || "Connecting…"} current=${creds} />`;
   }
+  try { if (new URLSearchParams(location.search).has("demo")) window.__ppClient = client; } catch {}   // console access for demo walkthroughs
   return html`<${App} client=${client} onResetCreds=${() => { localStorage.removeItem(LS.url); localStorage.removeItem(LS.key); localStorage.removeItem(LS.couple); setCreds({ url: "", key: "" }); }} />`;
 }
 

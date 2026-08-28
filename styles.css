@@ -1756,3 +1756,12 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .buylabel { flex: 1; min-width: 0; font-size: 14.5px; cursor: pointer; }
 .buymeal { font-size: 11px; color: var(--ink-2); margin-left: 7px; }
 .buyx { background: none; border: none; color: var(--ink-2); opacity: .4; cursor: pointer; font-size: 11px; }
+
+/* non-blocking daily: "answer later" escape + home nudge card */
+.daily-later {
+  display: block; margin: 10px auto 0; padding: 8px 16px;
+  color: var(--muted, #8a7f76); font-size: 0.85rem;
+  text-decoration: underline; text-underline-offset: 3px; background: none; border: none;
+}
+.dailynudge { cursor: pointer; }
+.dailynudge .dh-q { font-family: Fraunces, serif; font-size: 1.05rem; }

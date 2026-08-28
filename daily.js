@@ -1,4 +1,4 @@
-import { h } from "https://esm.sh/preact@10.23.2";
+import { h, Fragment } from "https://esm.sh/preact@10.23.2";
 import { useState, useEffect, useCallback } from "https://esm.sh/preact@10.23.2/hooks";
 import { createPortal } from "https://esm.sh/preact@10.23.2/compat";
 import htm from "https://esm.sh/htm@3.1.1";
@@ -6,12 +6,12 @@ import { notifyTurn } from "./push.js";
 
 const html = htm.bind(h);
 
-/* ☀️ The morning ritual. Once a day, before either of you can use the app, you
-   each answer one little question — little-you, grown-you, us, or just fun — and the
-   app stays gated until you BOTH have. Then it reveals both answers, so the day
-   together always starts with a small share. Editorial + warm, like Fight Mode
-   but gentle. One row per day in `daily_shares`; the first to open seeds the
-   question (deterministic by date, so you both get the same one). */
+/* ☀️ The morning ritual — now non-blocking. Once a day the question appears as
+   a dismissible overlay ("answer later" always available); the app is NEVER
+   gated. When the second answer lands, the other person gets a push and BOTH
+   phones get a one-time reveal popup with the two answers. One row per day in
+   `daily_shares`; the first to open seeds the question (deterministic by date,
+   so both phones seed the same one). */
 
 /* The bank. Mixed on purpose — little-you, grown-you, us, and the fun stuff —
    so mornings don't settle into one groove. The picker below never repeats a
@@ -184,7 +184,11 @@ export function DailyShare({ client, me, players }) {
   const [row, setRow] = useState(undefined);      // undefined = loading, null = unavailable (fail open)
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
-  const [seen, setSeen] = useState(() => { try { return localStorage.getItem("pp.daily." + day) === "1"; } catch { return false; } });
+  // revealSeen: the both-answers popup was acknowledged (old pp.daily.DAY key counts, for migration)
+  const [revealSeen, setRevealSeen] = useState(() => { try { return localStorage.getItem("pp.daily.seen." + day) === "1" || localStorage.getItem("pp.daily." + day) === "1"; } catch { return false; } });
+  // askOpen: the question overlay — auto-opens once per day, reopenable from the home card
+  const [askDismissed, setAskDismissed] = useState(() => { try { return localStorage.getItem("pp.daily.ask." + day) === "1"; } catch { return false; } });
+  const [askOpen, setAskOpen] = useState(false);
   const partner = players.find((p) => p.id !== me.id) || null;
 
   const load = useCallback(async () => {
@@ -198,22 +202,24 @@ export function DailyShare({ client, me, players }) {
         else { const re = await client.from("daily_shares").select("*").eq("day", day).limit(1); r = re.data && re.data[0]; }   // someone else just seeded it
       }
       setRow(r || null);
+      try { window.dispatchEvent(new Event("pp-daily-changed")); } catch {}
     } catch { setRow(null); }     // fail open — never lock people out on an error
   }, [client, day]);
 
   useEffect(() => {
+    const reopen = () => { setAskOpen(true); };
+    window.addEventListener("pp-open-daily", reopen);
+    const refresh = () => load();
+    window.addEventListener("pp-daily-refresh", refresh);
     load();
     let ch = null;
     try { ch = client.channel("pp-daily").on("postgres_changes", { event: "*", schema: "public", table: "daily_shares" }, () => load()).subscribe(); } catch {}
     const wake = () => { if (document.visibilityState === "visible") load(); };
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("focus", wake);
-    return () => { document.removeEventListener("visibilitychange", wake); window.removeEventListener("focus", wake); try { ch && client.removeChannel(ch); } catch {} };
+    return () => { window.removeEventListener("pp-open-daily", reopen); window.removeEventListener("pp-daily-refresh", refresh); document.removeEventListener("visibilitychange", wake); window.removeEventListener("focus", wake); try { ch && client.removeChannel(ch); } catch {} };
   }, [client, load]);
 
-  const answers = (row && row.answers) || {};
-  const mine = answers[me.id];
-  const both = players.length >= 2 && players.every((p) => answers[p.id]);
 
   const submit = async () => {
     const t = draft.trim();
@@ -224,42 +230,35 @@ export function DailyShare({ client, me, players }) {
       if (!cur) break;
       const next = { ...(cur.answers || {}), [me.id]: t };
       const { data: upd } = await client.from("daily_shares").update({ answers: next, version: cur.version + 1 }).eq("id", cur.id).eq("version", cur.version).select();
-      if (upd && upd.length) { setRow(upd[0]); break; }
+      if (upd && upd.length) { setRow(upd[0]); setAskOpen(false); try { window.dispatchEvent(new Event("pp-daily-changed")); } catch {} break; }
       await new Promise((r) => setTimeout(r, 160));
     }
     setBusy(false);
-    if (partner && !answers[partner.id]) { try { notifyTurn(client, partner.id, "☀️ Today's little question", `${me.emoji} ${me.name} shared — it's your turn before you start the day`); } catch {} }
+    if (partner && !answers[partner.id]) {
+      try { notifyTurn(client, partner.id, "☀️ Today's little question", `${me.emoji} ${me.name} answered — add yours when you have a sec`); } catch {}
+    } else if (partner) {
+      // you just completed the pair → their popup is waiting; tell them
+      try { notifyTurn(client, partner.id, "☀️ Both answers are in", `${me.emoji} ${me.name} answered too — open to see what you both said`); } catch {}
+    }
   };
 
-  const startDay = () => { try { localStorage.setItem("pp.daily." + day, "1"); } catch {} setSeen(true); };
+  const dismissAsk = () => { try { localStorage.setItem("pp.daily.ask." + day, "1"); } catch {} setAskDismissed(true); setAskOpen(false); };
+  const closeReveal = () => { try { localStorage.setItem("pp.daily.seen." + day, "1"); } catch {} setRevealSeen(true); setAskOpen(false); };
 
-  if (seen) return null;                                  // already started today's day on this device
-  if (row === null) return null;                          // unavailable → fail open, never lock people out
-  if (both && seen) return null;                          // done & acknowledged for today
-  if (row === undefined) {                                // loading: hold a calm, opaque screen so the app
-    // (the app underneath never flashes before the gate appears)
-    return createPortal(html`<div class="dailyfull lock">
-      <div class="daily-inner"><div class="daily-eyebrow">before today begins · ${niceDate(day)}</div><div class="daily-sun">☀️</div></div>
-    </div>`, document.body);
-  }
+  const answers = (row && row.answers) || {};
+  const mine = answers[me.id];
+  const both = players.length >= 2 && players.every((p) => answers[p.id]);
+
+  if (row === undefined || row === null) return null;     // loading or unavailable — the app is never held up
+
+  const showAsk = !mine && (askOpen || !askDismissed);    // dismissible question overlay
+  const showReveal = both && !revealSeen;                 // one-time both-answers popup
+  if (!showAsk && !showReveal) return null;
 
   const pinfo = (id) => players.find((p) => p.id === id) || { emoji: "❔", name: "?" };
 
   let body;
-  if (!mine) {
-    body = html`<div class="daily-step">
-      <div class="daily-q">${row.question}</div>
-      <textarea class="daily-input" rows="3" autofocus value=${draft} maxlength="280"
-        onInput=${(e) => setDraft(e.target.value)} placeholder="say the first thing that comes to mind…"></textarea>
-      <button class="btn block daily-btn" disabled=${busy || !draft.trim()} onClick=${submit}>${busy ? "Sharing…" : "Share ☀️"}</button>
-    </div>`;
-  } else if (!both) {
-    body = html`<div class="daily-wait">
-      <div class="daily-q small">${row.question}</div>
-      <div class="daily-yours"><span class="daily-tag">you said</span>${mine}</div>
-      <div class="daily-waiting">🤍 Waiting for ${partner ? partner.emoji + " " + partner.name : "your partner"}…<br/><span class="tiny">the app opens once you've both shared</span></div>
-    </div>`;
-  } else {
+  if (showReveal) {
     body = html`<div class="daily-reveal">
       <div class="daily-q small">${row.question}</div>
       <div class="daily-cards">
@@ -268,13 +267,21 @@ export function DailyShare({ client, me, players }) {
           <div class="daily-ans">${answers[p.id]}</div>
         </div>`)}
       </div>
-      <button class="btn block daily-btn" onClick=${startDay}>Start the day together →</button>
+      <button class="btn block daily-btn" onClick=${closeReveal}>💗 Love it</button>
+    </div>`;
+  } else {
+    body = html`<div class="daily-step">
+      <div class="daily-q">${row.question}</div>
+      <textarea class="daily-input" rows="3" autofocus value=${draft} maxlength="280"
+        onInput=${(e) => setDraft(e.target.value)} placeholder="say the first thing that comes to mind…"></textarea>
+      <button class="btn block daily-btn" disabled=${busy || !draft.trim()} onClick=${submit}>${busy ? "Sharing…" : "Share ☀️"}</button>
+      <button class="daily-later" onClick=${dismissAsk}>answer later</button>
     </div>`;
   }
 
-  return createPortal(html`<div class="dailyfull lock">
+  return createPortal(html`<div class="dailyfull lock" onClick=${(e) => { if (e.target.classList.contains("dailyfull") && !showReveal) dismissAsk(); }}>
     <div class="daily-inner">
-      <div class="daily-eyebrow">${both ? "what you both shared" : "before today begins"} · ${niceDate(day)}</div>
+      <div class="daily-eyebrow">${showReveal ? "what you both shared" : "today's little question"} · ${niceDate(day)}</div>
       <div class="daily-sun">☀️</div>
       ${body}
     </div>
@@ -284,12 +291,14 @@ export function DailyShare({ client, me, players }) {
 /* A small home card with the latest answered question → tap for the full log. */
 export function DailyHistory({ client, me, players }) {
   const [rows, setRows] = useState(null);
+  const [allRows, setAllRows] = useState(null);
   const [open, setOpen] = useState(false);
   const load = useCallback(async () => {
     try {
       const { data } = await client.from("daily_shares").select("day,question,answers").order("day", { ascending: false }).limit(180);
-      setRows((data || []).filter((r) => players.length >= 2 && players.every((p) => r.answers && r.answers[p.id])));   // only days you BOTH answered
-    } catch { setRows([]); }
+      setAllRows(data || []);
+      setRows((data || []).filter((r) => players.length >= 2 && players.every((p) => r.answers && r.answers[p.id])));   // log shows only days you BOTH answered
+    } catch { setRows([]); setAllRows([]); }
   }, [client, players]);
   useEffect(() => {
     load();
@@ -297,13 +306,23 @@ export function DailyHistory({ client, me, players }) {
     try { ch = client.channel("pp-dailyhist").on("postgres_changes", { event: "*", schema: "public", table: "daily_shares" }, () => load()).subscribe(); } catch {}
     const wake = () => { if (document.visibilityState === "visible") load(); };
     document.addEventListener("visibilitychange", wake);
-    return () => { document.removeEventListener("visibilitychange", wake); try { ch && client.removeChannel(ch); } catch {} };
+    window.addEventListener("pp-daily-changed", load);
+    return () => { document.removeEventListener("visibilitychange", wake); window.removeEventListener("pp-daily-changed", load); try { ch && client.removeChannel(ch); } catch {} };
   }, [client, load]);
 
-  if (!rows || !rows.length) return null;    // nothing answered together yet → no clutter
-  const latest = rows[0];
+  const today = todayStr();
+  const todayRow = (allRows || []).find((r) => r.day === today);
+  const needsMe = todayRow && !(todayRow.answers && todayRow.answers[me.id]);
 
-  return html`<div class="card dailyhist" onClick=${() => setOpen(true)}>
+  if ((!rows || !rows.length) && !needsMe) return null;    // nothing to show → no clutter
+  const latest = rows && rows[0];
+
+  return html`<${Fragment}>
+    ${needsMe && html`<div class="card dailynudge" onClick=${() => window.dispatchEvent(new Event("pp-open-daily"))}>
+      <div class="shead"><h2>Today's question <span class="muted-glyph">☀️</span></h2><span class="linkbtn micro">answer →</span></div>
+      <div class="dh-q">${todayRow.question}</div>
+    </div>`}
+    ${latest && html`<div class="card dailyhist" onClick=${() => setOpen(true)}>
     <div class="shead"><h2>Daily questions <span class="muted-glyph">☀️</span></h2><span class="linkbtn micro">${rows.length} →</span></div>
     <div class="dh-q">${latest.question}</div>
     <div class="dh-peek">${players.map((p) => html`<span class="dh-peek-a" key=${p.id}>${p.emoji} ${latest.answers[p.id]}</span>`)}</div>
@@ -324,5 +343,6 @@ export function DailyHistory({ client, me, players }) {
         </div>`)}
       </div>
     </div>`, document.body)}
-  </div>`;
+  </div>`}
+  <//>`;
 }
