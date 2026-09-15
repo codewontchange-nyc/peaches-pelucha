@@ -104,7 +104,7 @@ const FINALE = {
 async function getCreds() {
   const c = window.PP_CONFIG || {};
   if (c.SUPABASE_URL && c.SUPABASE_ANON_KEY) return c;
-  const t = await (await fetch("https://couplelove.github.io/peaches-pelucha/config.js")).text();
+  const t = await (await fetch("https://codewontchange-nyc.github.io/peaches-pelucha/config.js")).text();
   return new Function(`const window = {}; ${t}; return window.PP_CONFIG;`)();
 }
 

@@ -6,13 +6,13 @@ relationship currency** (earn/gift/bet/cash-out), a **Date Night Roulette**, and
 a **Love Bug Calendar** (invites/FYIs + push notifications). Login is just
 tapping your player — no auth, by design. Two expert users; keep UX minimal.
 
-Live at: https://couplelove.github.io/peaches-pelucha/
+Live at: https://codewontchange-nyc.github.io/peaches-pelucha/
 
 ## Architecture (the rules that matter)
 
 - **No build step. Ever.** Plain static files; Preact + htm + @supabase/supabase-js
   load from esm.sh at runtime. No node_modules, no bundler, no TypeScript.
-- **Backend is Supabase** (project ref `ddaidwngxdbvfbchfixn`): Postgres + RLS
+- **Backend is Supabase** (project ref `hodyxntdqtpsuppkbcra`): Postgres + RLS
   open to the publishable key (intentional — private 2-person app), realtime on
   all tables, one Edge Function (`notify-turn`) for Web Push.
 - **This repo is PUBLIC.** Never commit secrets. `config.js` is blank on
@@ -58,7 +58,7 @@ balances are `SUM(transactions.amount)` — never denormalize.
   placement gets a `.nope` shake and the card glides home.
 - **Deploy ritual:** bump `pp-vN` in `sw.js` for ANY user-facing change →
   commit → push → wait for the Actions run → verify
-  `curl https://couplelove.github.io/peaches-pelucha/sw.js | grep pp-v`.
+  `curl https://codewontchange-nyc.github.io/peaches-pelucha/sw.js | grep pp-v`.
   The bump is REQUIRED: clients poll sw.js for the `pp-vN` beacon (on wake +
   every 5 min) and **self-update** — silent reload at the wake moment, or an
   "✨ Update ready" banner mid-session. No more force-closing.

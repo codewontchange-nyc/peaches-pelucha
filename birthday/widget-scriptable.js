@@ -5,7 +5,7 @@
 // Tapping the widget opens her birthday app.
 
 const BDAY = new Date("2026-07-11T00:00:00");
-const APP_URL = "https://couplelove.github.io/peaches-pelucha/birthday/";
+const APP_URL = "https://codewontchange-nyc.github.io/peaches-pelucha/birthday/";
 
 const w = new ListWidget();
 w.url = APP_URL;
