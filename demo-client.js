@@ -90,22 +90,10 @@ function seed() {
   db.round_entries.push(
     { id: uid(), round_id: r1.id, player_id: peaches, points: 15, completed_phase: true },
     { id: uid(), round_id: r1.id, player_id: pelucha, points: 35, completed_phase: false });
-  // sample map content (pins + a road trip)
-  const trip = { id: uid(), title: "Pacific Coast Highway", emoji: "🚐", created_by: peaches, created_at: nowISO() };
-  db.trips = [trip];
-  db.trip_stops = [
-    { id: uid(), trip_id: trip.id, lat: 37.8199, lng: -122.4783, title: "Golden Gate", note: null, seq: 0, visited: true, created_at: nowISO() },
-    { id: uid(), trip_id: trip.id, lat: 36.9741, lng: -122.0308, title: "Santa Cruz", note: null, seq: 1, visited: false, created_at: nowISO() },
-    { id: uid(), trip_id: trip.id, lat: 36.2704, lng: -121.8081, title: "Big Sur", note: "sunset stop", seq: 2, visited: false, created_at: nowISO() },
-  ];
   // one sample AI day-title (matches the geotagged "today" memory) so the Map's
-  // Memories list shows a chapter title, not just the city name
+  // day list shows a chapter title, not just the city name
   db.day_stories = [
     { id: uid(), day: new Date().toISOString().slice(0, 10), title: "City of First Lights", story: "You two wander bright streets, hand in hand, chasing the good kind of lost.", sig: null, created_at: nowISO(), updated_at: nowISO() },
-  ];
-  db.map_pins = [
-    { id: uid(), lat: 48.8566, lng: 2.3522, title: "That little café", note: null, list: "Places We Want to Go", emoji: "☕", visited: false, created_by: peaches, created_at: nowISO() },
-    { id: uid(), lat: 41.9028, lng: 12.4964, title: "Rome someday", note: "the pasta one", list: "Places We Want to Go", emoji: "🏛️", visited: false, created_by: pelucha, created_at: nowISO() },
   ];
   db.radio_seeds = [
     { id: uid(), term: "Fleetwood Mac", video_id: null, title: "Fleetwood Mac", added_by: peaches, created_at: nowISO() },
@@ -162,9 +150,6 @@ const DEFAULTS = {
   date_ideas: { emoji: "✨", category: "food", active: true, added_by: null },
   date_spins: { emoji: "✨", category: "food", spun_by: null },
   events: { emoji: "💗", starts_at: null, notes: null, location: null, kind: "invite", created_by: null, rsvp: "pending" },
-  map_pins: { note: null, list: "Places We Want to Go", emoji: "📍", visited: false, created_by: null },
-  trips: { emoji: "🚐", created_by: null },
-  trip_stops: { note: null, seq: 0, visited: false },
   radio_seeds: { term: "", video_id: null, title: null, added_by: null },
   radio_state: { state: {}, version: 0 },
   gratitudes: { created_by: null },

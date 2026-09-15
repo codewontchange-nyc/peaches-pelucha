@@ -1277,21 +1277,18 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 /* ============================================================================
    🗺️ Map (Plans) — Leaflet host, styled markers, lists + road-trip panel.
    ========================================================================== */
-.map-modes { margin-bottom: 12px; }
-.map-modes button { white-space: nowrap; padding-left: 6px; padding-right: 6px; }
-
 /* full-bleed Map page (like Memories): edge-to-edge preview, content keeps a
    readable inset; the card stays glass for legibility */
 .app-shell.map { padding-left: 0; padding-right: 0; }
 .app-shell.map .topbar { padding-left: 18px; padding-right: 18px; }
 .app-shell.map .mapcard { border-radius: 0; margin-bottom: 0; padding-left: 16px; padding-right: 16px; }
-.app-shell.map .map-wrap.preview { margin-left: -16px; margin-right: -16px; border-radius: 0; height: 230px; }
+.app-shell.map .map-wrap.preview { margin-left: -16px; margin-right: -16px; border-radius: 0; height: 320px; }
 .leaflet-host { width: 100%; height: 100%; background: var(--c-canvas, #e9eff4); }
 .leaflet-container { font: inherit; }
 
 /* preview: a frozen teaser in its own stacking context (Leaflet's internal
    z-indexes never paint over the dock/sheets), with a tap overlay → full map */
-.map-wrap.preview { position: relative; z-index: 0; height: 190px; border-radius: 16px; overflow: hidden;
+.map-wrap.preview { position: relative; z-index: 0; height: 260px; border-radius: 16px; overflow: hidden;
   box-shadow: 0 10px 28px -16px rgba(20,33,46,.5); }
 .map-open { position: absolute; inset: 0; z-index: 2; border: 0; background: transparent; cursor: pointer;
   display: flex; align-items: flex-end; justify-content: flex-end; padding: 12px; }
@@ -1309,74 +1306,39 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .mapfull-bar .vw-x { position: static; flex: none; width: 38px; height: 38px; border-radius: 50%;
   border: 1px solid var(--glass-line); background: var(--glass-strong, rgba(255,255,255,.82)); color: var(--c-ink);
   font-size: 16px; cursor: pointer; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
-.mf-modes { flex: 1; margin: 0; }
-.mf-modes button { padding: 8px 4px; font-size: 16px; }
-
-/* place/address search (full-screen) */
-.mapsearch { position: relative; z-index: 6; display: flex; align-items: center; gap: 8px; margin: 0 12px 10px;
-  background: var(--glass-strong, rgba(255,255,255,.9)); border: 1px solid var(--glass-line); border-radius: 14px;
-  padding: 0 12px; box-shadow: 0 6px 18px -10px rgba(20,33,46,.4);
-  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.ms-ico { font-size: 14px; opacity: .7; }
-.mapsearch input { flex: 1; border: 0; background: transparent; padding: 12px 0; font-size: 15px; color: var(--c-ink); box-shadow: none; }
-.mapsearch input:focus { outline: none; box-shadow: none; }
-.ms-clear { flex: none; border: 0; background: rgba(20,33,46,.08); color: var(--c-ink-2); width: 24px; height: 24px;
-  border-radius: 50%; font-size: 12px; cursor: pointer; }
-.mapsearch-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 7;
-  background: #fff; border: 1px solid var(--c-line); border-radius: 14px; overflow: hidden;
-  box-shadow: 0 16px 40px -12px rgba(20,33,46,.45); max-height: 50vh; overflow-y: auto; }
-.ms-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none;
-  padding: 12px 14px; cursor: pointer; color: var(--c-ink); font-size: 14px; }
-.ms-row + .ms-row { border-top: 1px solid var(--line-2); }
-.ms-row:active { background: var(--paper-2); }
-.ms-row.muted { color: var(--c-ink-2); cursor: default; }
-.ms-pin { flex: none; font-size: 15px; }
-.ms-label { flex: 1; min-width: 0; line-height: 1.35; }
+.mapfull-title { flex: 1; font-family: var(--serif); font-weight: 500; font-size: 18px; color: var(--c-ink); }
 /* z-index:0 makes the map its own stacking context so Leaflet's internal
-   z-indexes (panes ~400, controls ~800) stay trapped below the search dropdown */
+   z-indexes (panes ~400, controls ~800) stay trapped below the overlays */
 .mapfull-map { position: relative; z-index: 0; flex: 1; min-height: 0; }
-.mapfull-map.adding .leaflet-host { cursor: crosshair; }
-.mf-note { position: absolute; z-index: 5; bottom: calc(16px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
-  background: rgba(20,33,46,.82); color: #fff; font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: 999px; pointer-events: none; }
-.map-hint { position: absolute; z-index: 5; top: 12px; left: 50%; transform: translateX(-50%);
-  background: rgba(20,33,46,.86); color: #fff; font-size: 12.5px; font-weight: 700; letter-spacing: .02em;
-  padding: 7px 15px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0,0,0,.3); pointer-events: none; animation: fade .2s ease; }
 
-/* styled divIcon markers */
+/* photo pins — each memory day is its day's cover shot in a tiny polaroid */
 .mkr { background: none; border: 0; }
-.mkr-pin { width: 30px; height: 30px; border-radius: 50%;
-  background: #fff; border: 2px solid var(--c-accent);
-  display: grid; place-content: center; font-size: 15px; line-height: 1; }
-.mkr-pin.done { border-color: var(--good); }
-.mkr-pin.mem { border-color: var(--accent); }
-.mkr-stop { width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 2px solid var(--c-accent);
-  display: grid; place-content: center; font-weight: 800; font-size: 13px; color: var(--c-accent); }
-.mkr-stop.done { background: var(--c-accent); color: #fff; }
-/* provisional pin (awaiting confirmation) — accent-filled, white ring, bobbing */
-.mkr-pending { width: 38px; height: 38px; border-radius: 50%;
-  background: var(--c-accent); border: 3px solid #fff;
-  display: grid; place-content: center; font-size: 18px; line-height: 1; animation: pendBounce 1s ease-in-out infinite; }
-@keyframes pendBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.mkr-photo { position: relative; width: 48px; height: 48px; border-radius: 10px;
+  background: #fff; border: 3px solid #fff; overflow: visible;
+  box-shadow: 0 3px 10px rgba(20,33,46,.38); }
+.mkr-photo img { width: 100%; height: 100%; object-fit: cover; border-radius: 7px; display: block; }
+.mkr-photo .mkr-fallback { display: grid; place-content: center; width: 100%; height: 100%; font-size: 20px; }
+.mkr-photo.approx { opacity: .82; }
+.mkr-photo.approx::after { content: ""; position: absolute; inset: -3px; border-radius: 10px; border: 1.5px dashed rgba(20,33,46,.35); }
+.mkr-count { position: absolute; top: -8px; right: -8px; min-width: 19px; height: 19px; padding: 0 5px;
+  border-radius: 999px; background: var(--c-accent, var(--accent)); color: #fff; font-size: 10.5px; font-weight: 800;
+  display: grid; place-content: center; box-shadow: 0 2px 6px rgba(20,33,46,.35); }
 
-/* "Ideas for your list" — auto-rotating suggestion carousel under the preview */
-.sugwrap { margin-top: 14px; }
-.sug-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--c-accent); margin: 0 2px 8px; }
-.sugstrip { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch; padding-bottom: 4px; scrollbar-width: none; }
-.sugstrip::-webkit-scrollbar { display: none; }
-.sug-card { scroll-snap-align: start; flex: 0 0 80%; display: flex; align-items: center; gap: 11px;
-  background: var(--glass); border: 1px solid var(--glass-line); border-radius: 16px; padding: 11px 12px;
-  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.sug-emoji { font-size: 24px; flex: none; }
-.sug-main { flex: 1; min-width: 0; }
-.sug-name { font-weight: 600; font-size: 14.5px; color: var(--c-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sug-blurb { font-size: 12px; color: var(--c-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sug-add { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--c-accent);
-  color: #fff; font-size: 19px; line-height: 1; cursor: pointer; box-shadow: 0 4px 12px -4px var(--c-accent); }
-.sug-add:active { transform: scale(.9); }
-.sug-add:disabled { opacity: .6; }
+/* a tapped photo pin → floating day card over the full map (Leaflet's internal
+   panes go up to ~800 inside the same stacking context, so sit above them) */
+.memday-pop { position: absolute; z-index: 900; left: 12px; right: 12px; bottom: 14px;
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  background: var(--glass-strong, rgba(255,255,255,.94)); border: 1px solid var(--glass-line);
+  border-radius: 16px; padding: 10px 12px; box-shadow: 0 14px 34px -14px rgba(20,33,46,.55);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); animation: fade .18s ease; }
+.memday-pop img { flex: none; width: 64px; height: 64px; border-radius: 12px; object-fit: cover; }
+.memday-pop .mp-main { flex: 1; min-width: 0; }
+.memday-pop .mp-title { font-family: var(--serif); font-weight: 500; font-size: 17px; color: var(--c-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.memday-pop .mp-sub { font-size: 12.5px; color: var(--c-ink-2); margin-top: 2px; }
+.memday-pop .mp-x { flex: none; color: var(--c-ink-3); font-size: 13px; padding: 4px; }
 
-/* mode panel below the map */
+/* day list below the map */
 .map-panel { margin-top: 14px; }
 .map-empty { color: var(--c-ink-2); font-size: 13.5px; padding: 14px 2px; text-align: center; }
 .map-list { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
@@ -1385,27 +1347,11 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .map-row:active { background: rgba(20,33,46,.05); }
 .map-row + .map-row { border-top: 1px solid var(--c-line); border-radius: 0; }
 .mr-emoji { font-size: 19px; width: 26px; text-align: center; flex: none; }
-.mr-seq { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-content: center;
-  font-weight: 800; font-size: 12px; color: var(--c-accent); border: 2px solid var(--c-accent); }
-.mr-seq.done { background: var(--c-accent); color: #fff; }
-/* reorder a trip stop: a compact ▲▼ column */
-.mr-reorder { flex: none; display: flex; flex-direction: column; gap: 1px; margin-left: -4px; }
-.mr-arrow { width: 22px; height: 17px; display: grid; place-content: center; font-size: 10px;
-  color: var(--c-accent); cursor: pointer; border-radius: 5px; }
-.mr-arrow:active { background: rgba(31,140,138,.14); }
-.mr-arrow.dis { color: var(--c-ink-3); opacity: .35; pointer-events: none; }
+.mr-photo { flex: none; width: 40px; height: 40px; border-radius: 10px; object-fit: cover;
+  box-shadow: 0 2px 8px -2px rgba(20,33,46,.4); }
 .mr-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .mr-title { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mr-title.done { color: var(--c-ink-2); text-decoration: line-through; text-decoration-color: var(--c-ink-3); }
 .mr-sub { font-size: 12px; color: var(--c-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mr-check { flex: none; font-size: 12px; font-weight: 700; color: var(--c-ink-3); background: rgba(20,33,46,.05);
-  border: 1px solid var(--c-line); border-radius: 999px; padding: 4px 10px; min-width: 44px; text-align: center; }
-.mr-check.on { color: #fff; background: var(--good); border-color: transparent; }
-
-/* road-trip detail */
-.trip-detail { margin-top: 8px; }
-.trip-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
-.trip-name { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--c-ink); }
 .linkbtn.danger { color: var(--bad); }
 .fchip.add { color: var(--c-accent); }
 
@@ -1415,18 +1361,12 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   border-top: 1px solid var(--glass-line); border-radius: 18px 18px 0 0;
   padding: 8px 14px calc(14px + var(--safe-bottom)); box-shadow: 0 -10px 28px -18px rgba(20,33,46,.5); }
 .mapfull-panel .map-panel { margin-top: 6px; }
-/* edit/remove affordance on a row (opens the sheet, which has Delete/Remove) */
-.mr-edit { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-content: center;
-  color: var(--c-ink-2); font-size: 18px; line-height: 1; }
-.mr-edit:active { background: rgba(20,33,46,.08); }
 
-/* pin/stop sheet bits */
+/* emoji picker rows (app.js sheets) */
 .emoji-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .emoji-pick { width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--glass-line);
   background: rgba(255,255,255,.6); font-size: 18px; cursor: pointer; }
 .emoji-pick.on { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 16%, transparent); }
-.map-toggle { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--c-ink); cursor: pointer; }
-.map-toggle input { width: auto; }
 
 /* ---- dark verse card (home) — like the "Next event" hero. Placed last + with
    .card.versecard specificity so it beats .app-shell.cool .card and the
