@@ -496,3 +496,23 @@ export function PlansTab({ client, me, players, flash }) {
     </div>`}
   </div>`;
 }
+
+/* Castle-door badge: upcoming invites from the partner still awaiting MY answer. */
+export function useRsvpNeeded(client, me) {
+  const [n, setN] = useState(0);
+  const load = useCallback(async () => {
+    try {
+      const { data } = await client.from("events").select("id,kind,created_by,rsvp,starts_on").gte("starts_on", todayISO());
+      setN((data || []).filter((e) => e.kind === "invite" && e.created_by !== me.id && e.rsvp === "pending").length);
+    } catch {}
+  }, [client, me && me.id]);
+  useEffect(() => {
+    load();
+    let ch = null;
+    try { ch = client.channel("pp-events-badge").on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => load()).subscribe(); } catch {}
+    const wake = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", wake);
+    return () => { document.removeEventListener("visibilitychange", wake); try { ch && client.removeChannel(ch); } catch {} };
+  }, [client, load]);
+  return n;
+}

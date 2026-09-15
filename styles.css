@@ -60,7 +60,7 @@ body {
 @keyframes rise { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-6px);} }
 
 /* ---- shell ---- */
-.app-shell { max-width: var(--maxw); margin: 0 auto; padding: 0 18px 128px; }
+.app-shell { max-width: var(--maxw); margin: 0 auto; padding: 0 18px 56px; }
 /* one standardized header band, sticky on every tab: it owns the safe-area top
    inset (the shell no longer pads for it) and bleeds to the shell's edges so
    content scrolls cleanly underneath */
@@ -212,7 +212,7 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .empty { text-align: center; color: var(--ink-3); padding: 26px 8px; }
 .empty .big { font-size: 30px; display: block; margin-bottom: 8px; opacity: .8; }
 
-.toast { position: fixed; left: 50%; bottom: calc(86px + var(--safe-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 11px 18px; border-radius: var(--r-pill); font-weight: 500; font-size: 14px; z-index: 80; box-shadow: var(--shadow); animation: pop .2s ease; max-width: 90vw; text-align: center; }
+.toast { position: fixed; left: 50%; bottom: calc(30px + var(--safe-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 11px 18px; border-radius: var(--r-pill); font-weight: 500; font-size: 14px; z-index: 80; box-shadow: var(--shadow); animation: pop .2s ease; max-width: 90vw; text-align: center; }
 @keyframes pop { from { transform: translate(-50%, 10px); opacity: 0; } to { transform: translate(-50%,0); opacity: 1; } }
 
 .spread { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -966,37 +966,7 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 @keyframes paneFromR { from { opacity: 0; transform: translateX(40px) scale(.984); } to { opacity: 1; transform: none; } }
 @keyframes paneFromL { from { opacity: 0; transform: translateX(-40px) scale(.984); } to { opacity: 1; transform: none; } }
 
-/* floating glass dock — minimal, gesture-first, with a spring puck */
-.dock {
-  position: fixed; left: 50%; bottom: calc(16px + var(--safe-bottom)); transform: translateX(-50%);
-  z-index: 40; display: flex; align-items: center; gap: 2px; padding: 7px;
-  background: var(--glass-strong); border: 1px solid var(--glass-line); border-radius: var(--r-pill);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-}
-.dock-puck {
-  position: absolute; left: 7px; top: 7px; width: 54px; height: calc(100% - 14px);
-  border-radius: var(--r-pill); background: var(--c-accent); z-index: 0;
-  box-shadow: 0 8px 18px -7px var(--c-accent), inset 0 1px 0 rgba(255,255,255,.25);
-  transition: transform .52s var(--spring);
-}
-.dock button {
-  position: relative; z-index: 1; border: 0; background: none; cursor: pointer;
-  width: 54px; height: 52px; display: grid; place-content: center; font-size: 22px; line-height: 1;
-  border-radius: var(--r-pill); transition: transform .4s var(--spring), filter .3s ease, opacity .3s ease;
-  filter: grayscale(.45); opacity: .62;
-}
-.dock button:active { transform: scale(.82); }
-.dock button.active { filter: none; opacity: 1; transform: translateY(-1px); text-shadow: 0 1px 6px rgba(0,0,0,.28); }
-.dock-label {
-  position: fixed; left: 50%; bottom: calc(16px + 58px + var(--safe-bottom)); transform: translateX(-50%);
-  z-index: 40; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--c-ink-2); background: var(--glass-strong); padding: 4px 12px; border-radius: var(--r-pill);
-  border: 1px solid var(--glass-line); box-shadow: 0 6px 18px -10px rgba(20,33,46,.4);
-  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
-  animation: labelPop .5s var(--spring);
-}
-@keyframes labelPop { from { opacity: 0; transform: translateX(-50%) translateY(6px) scale(.9); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
+/* (the floating dock lived here — replaced by the castle hub, castle.js) */
 
 /* reusable glass card primitive for the cool tabs (Phase 2 surfaces opt in) */
 .glass {
@@ -1007,8 +977,8 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .tap { transition: transform .3s var(--spring); }
 .tap:active { transform: scale(.97); }
 @media (prefers-reduced-motion: reduce) {
-  .pane-from-r, .pane-from-l, .dock-label { animation: none; }
-  .dock-puck, .dock button, .tap { transition: none; }
+  .pane-from-r, .pane-from-l { animation: none; }
+  .tap { transition: none; }
 }
 
 /* ============================================================================
@@ -1167,8 +1137,6 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .app-shell.cool .card,
 .app-shell.cool .evhero,
 .app-shell.cool .score-tile { border-radius: 20px; }
-/* dock label legible over any photo region */
-.dock-label { text-shadow: 0 1px 6px rgba(20,33,46,.26); }
 /* crisper, cooler modal grab handle */
 .handle { background: rgba(20,33,46,.16); }
 
@@ -1176,9 +1144,6 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .app-shell.mem .shead { flex-direction: column; align-items: stretch; gap: 13px; }
 .app-shell.mem .shead-actions { justify-content: space-between; }
 
-/* unseen-memories notification dot on the dock */
-.dock-dot { position: absolute; top: 6px; right: 8px; width: 9px; height: 9px; border-radius: 50%;
-  background: #e5484d; border: 2px solid var(--glass-strong); box-shadow: 0 1px 3px rgba(0,0,0,.25); }
 
 /* ============================================================================
    🧘 Join Me — presence-gated togetherness; breathe-together session.
@@ -1470,7 +1435,7 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .switch input:checked + .switch-track { background: var(--c-accent); }
 .switch input:checked + .switch-track::after { transform: translateX(18px); }
 
-.fight-banner { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(86px + var(--safe-bottom)); z-index: 41;
+.fight-banner { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(26px + var(--safe-bottom)); z-index: 41;
   background: linear-gradient(180deg, #15323a, #102329); color: #f4efe7; border: 0; border-radius: 999px; padding: 10px 18px;
   font-size: 13px; font-weight: 600; box-shadow: 0 10px 26px -10px rgba(0,0,0,.5); cursor: pointer; animation: pop .2s ease; max-width: calc(100% - 28px); }
 
@@ -1655,6 +1620,7 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .castle-svg .badge-dot { fill: #e85d75; stroke: #fdf6e3; stroke-width: 2; }
 .castle-svg .badge-halo { fill: #e85d75; opacity: .35; transform-box: fill-box; transform-origin: center;
   animation: badgePulse 2s ease-in-out infinite; }
+.castle-svg .badge-emoji { text-anchor: middle; font-size: 15px; pointer-events: none; }
 @keyframes badgePulse { 0%, 100% { transform: scale(1); opacity: .35; } 50% { transform: scale(1.7); opacity: 0; } }
 
 /* the player — runs to whichever door you tap (left/top transition, duration

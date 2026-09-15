@@ -10,9 +10,10 @@ import { DateRoulette } from "./roulette.js";
 import { ScriptureCard } from "./home.js";
 import { GratitudeCard } from "./gratitude.js";
 import { MemoryThread } from "./comments.js";
-import { RewardHome, RewardStrip } from "./rewards.js";
+import { RewardHome, RewardStrip, useGiftsToDeliver } from "./rewards.js";
 import { FightMode, FightToggle } from "./fight.js";
-import { DailyShare, DailyHistory } from "./daily.js";
+import { DailyShare, DailyHistory, useDailyNeedsMe } from "./daily.js";
+import { useRsvpNeeded } from "./events.js";
 import { pushStatus, enablePush, disablePush, ensurePush, notifyTurn } from "./push.js";
 import { CastleHub, ROOMS } from "./castle.js";
 import { get as idbGet, set as idbSet } from "https://esm.sh/idb-keyval@6";
@@ -478,6 +479,11 @@ function App({ client, onResetCreds }) {
     return b;
   }, [players, txns]);
 
+  // 🏰 living doors — what's waiting behind each one (badges on the hub)
+  const dailyNeedsMe = useDailyNeedsMe(client, me);
+  const rsvpNeeded = useRsvpNeeded(client, me);
+  const giftsToDeliver = useGiftsToDeliver(client, me);
+
   /* ---- data actions (all log to state via loadAll on realtime) ---- */
   const api = useMemo(() => makeApi(client, loadAll, flash), [client, loadAll, flash]);
 
@@ -539,7 +545,9 @@ function App({ client, onResetCreds }) {
       ${hub
         ? html`<div class="hub-enter">
             <${BirthdayBanner} me=${me} players=${players} />
-            <${CastleHub} me=${me} balances=${balances} badges=${{ memories: memUnseen }} onEnter=${goTab} />
+            <${CastleHub} me=${me} balances=${balances} onEnter=${goTab}
+              badges=${{ memories: memUnseen ? "✨" : null, chapel: dailyNeedsMe,
+                         plans: rsvpNeeded ? "💌" : null, schmoney: giftsToDeliver ? "🎁" : null }} />
           </div>`
         : html`<div class="swipe-wrap" key=${tab}>
             <${Settle} dir=${1} key=${tab}>

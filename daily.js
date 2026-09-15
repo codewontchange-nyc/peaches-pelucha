@@ -346,3 +346,27 @@ export function DailyHistory({ client, me, players }) {
   </div>`}
   <//>`;
 }
+
+/* Castle-door badge: does today's question still need MY answer? True only
+   once today's row exists (DailyShare seeds it on app open). Refreshes on the
+   pp-daily-changed bridge, realtime, and wake. */
+export function useDailyNeedsMe(client, me) {
+  const [needs, setNeeds] = useState(false);
+  const load = useCallback(async () => {
+    try {
+      const { data } = await client.from("daily_shares").select("answers").eq("day", todayStr()).limit(1);
+      const row = data && data[0];
+      setNeeds(!!(row && !(row.answers && row.answers[me.id])));
+    } catch {}
+  }, [client, me && me.id]);
+  useEffect(() => {
+    load();
+    window.addEventListener("pp-daily-changed", load);
+    const wake = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", wake);
+    let ch = null;
+    try { ch = client.channel("pp-daily-badge").on("postgres_changes", { event: "*", schema: "public", table: "daily_shares" }, () => load()).subscribe(); } catch {}
+    return () => { window.removeEventListener("pp-daily-changed", load); document.removeEventListener("visibilitychange", wake); try { ch && client.removeChannel(ch); } catch {} };
+  }, [client, load]);
+  return needs;
+}

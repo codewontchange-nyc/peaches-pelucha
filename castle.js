@@ -46,6 +46,7 @@ export function CastleHub({ me, balances, badges = {}, onEnter }) {
   const wrapRef = useRef(null);
   const timers = useRef([]);
   const phase = useRef("idle");
+  const heading = useRef(null);                      // door key mid-journey
   const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const later = (fn, ms) => timers.current.push(setTimeout(fn, ms));
@@ -72,6 +73,7 @@ export function CastleHub({ me, balances, badges = {}, onEnter }) {
   const onDoor = useCallback((key) => {
     if (phase.current === "opening" || phase.current === "zooming") return;
     clearAll();
+    heading.current = key;
     if (reduced) { openThenEnter(key); return; }
     // walk first: target just below the door, duration scaled by distance
     const d = ROOMS[key].door;
@@ -86,16 +88,24 @@ export function CastleHub({ me, balances, badges = {}, onEnter }) {
     later(() => openThenEnter(key), ms + 40);
   }, [pos, reduced, openThenEnter]);
 
-  // backgrounded mid-walk → settle home (timers are unreliable while hidden)
+  // Backgrounded mid-journey → honor the tap: after a REAL absence (quick
+  // hidden→visible blips like a notification-shade peek don't count), skip the
+  // rest of the cinematic and land in the room they were headed to. Timers are
+  // throttled while hidden, so "finish instantly on return" beats replaying.
   useEffect(() => {
-    const settle = () => {
-      if (document.visibilityState === "visible" || phase.current === "idle") return;
-      clearAll(); phase.current = "idle";
-      setOpening(null); setZoom(null); setWalking(false); setPos(RUG);
+    let hiddenAt = null;
+    const onVis = () => {
+      if (document.visibilityState === "hidden") { hiddenAt = hiddenAt || Date.now(); return; }
+      if (phase.current !== "idle" && heading.current && hiddenAt && Date.now() - hiddenAt > 1500) {
+        const key = heading.current;
+        clearAll(); phase.current = "idle"; heading.current = null;
+        onEnter(key);
+      }
+      hiddenAt = null;
     };
-    document.addEventListener("visibilitychange", settle);
-    return () => { document.removeEventListener("visibilitychange", settle); clearAll(); };
-  }, []);
+    document.addEventListener("visibilitychange", onVis);
+    return () => { document.removeEventListener("visibilitychange", onVis); clearAll(); };
+  }, [onEnter]);
 
   return html`<div ref=${wrapRef} class=${`castle-wrap ${zoom ? "zoom" : ""}`}
     style=${zoom ? `transform-origin:${zoom.ox}px ${zoom.oy}px` : ""}>
@@ -118,7 +128,9 @@ const Door = ({ k, opening, badge, onDoor, children }) => {
     <text class="door-label" x=${cx} y=${d.y + d.h + 15}>${ROOMS[k].label.toUpperCase()}</text>
     ${badge && html`<g class="door-badge">
       <circle cx=${d.x + d.w - 2} cy=${d.y + 2} r="10" class="badge-halo" />
-      <circle cx=${d.x + d.w - 2} cy=${d.y + 2} r="7.5" class="badge-dot" />
+      ${typeof badge === "string"
+        ? html`<text class="badge-emoji" x=${d.x + d.w - 2} y=${d.y + 8}>${badge}</text>`
+        : html`<circle cx=${d.x + d.w - 2} cy=${d.y + 2} r="7.5" class="badge-dot" />`}
     </g>`}
     <rect class="door-hit" x=${cx - 34} y=${d.y - 8} width="68" height=${Math.max(d.h + 26, 68)} />
   </g>`;
@@ -210,7 +222,8 @@ function CastleSVG({ opening, badges, onDoor }) {
     <//>
 
     <!-- ☀️ Sunroom: arched window in the right tower -->
-    <${Door} k="chapel" opening=${opening} badge=${badges.chapel} onDoor=${onDoor}>
+    <!-- an unanswered daily question lights this window from inside (no dot) -->
+    <${Door} k="chapel" opening=${opening} badge=${null} onDoor=${onDoor}>
       <path d="M286 256 v-68 a26 26 0 0 1 52 0 v68 Z" fill="#2c4054" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
       <path d="M286 256 v-68 a26 26 0 0 1 52 0 v68 Z" fill="url(#c-glow)" class=${`doorlight ${badges.chapel ? "lit" : ""}`} />
       <line x1="312" y1="188" x2="312" y2="256" stroke="#b9852e" stroke-width="2" />

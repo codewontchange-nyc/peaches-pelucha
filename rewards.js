@@ -140,3 +140,10 @@ export function RewardStrip({ client, me, players }) {
     </div>`, document.body)}
   </div>`;
 }
+
+/* Castle-door badge: redeemed rewards I still owe my partner (pending, mine to
+   deliver). Rides usePending's realtime + wake refresh. */
+export function useGiftsToDeliver(client, me) {
+  const [rows] = usePending(client);
+  return rows.filter((r) => r.fulfiller_id === (me && me.id)).length;
+}
