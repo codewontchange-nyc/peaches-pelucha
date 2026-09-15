@@ -1657,12 +1657,28 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   animation: badgePulse 2s ease-in-out infinite; }
 @keyframes badgePulse { 0%, 100% { transform: scale(1); opacity: .35; } 50% { transform: scale(1.7); opacity: 0; } }
 
-/* the player, standing on the foyer rug (walks in phase 2) */
-.hub-avatar { position: absolute; left: 38.5%; top: 88.5%; transform: translate(-50%, -100%);
+/* the player — runs to whichever door you tap (left/top transition, duration
+   set inline from walk distance; facing via scaleX on the span, bob on the <i>) */
+.hub-avatar { position: absolute; transform: translate(-50%, -100%);
   font-size: 30px; line-height: 1; pointer-events: none;
-  filter: drop-shadow(0 4px 6px rgba(10,16,22,.45)); }
-.hub-avatar span { display: inline-block; animation: hubBob 2.6s ease-in-out infinite; }
+  filter: drop-shadow(0 4px 6px rgba(10,16,22,.45));
+  transition-property: left, top; transition-timing-function: cubic-bezier(.45,.1,.35,1); }
+.hub-avatar span { display: inline-block; }
+.hub-avatar i { display: inline-block; font-style: normal; animation: hubBob 2.6s ease-in-out infinite; }
+.hub-avatar.walking i { animation: hubWalk .3s ease-in-out infinite; }
+.hub-avatar.entering { opacity: 0; transition: opacity .3s ease .1s; }
 @keyframes hubBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes hubWalk { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-6px) rotate(4deg); } }
+
+/* door swing: the leaf folds toward its hinge under the warm light */
+.castle-svg .leaf { transform-box: fill-box; transform-origin: left center;
+  transition: transform .26s cubic-bezier(.5,0,.8,.4); }
+.castle-svg .door.open .leaf { transform: scaleX(.14); }
+
+/* the dive into the doorway — this transform lives ONLY on the hub, which
+   unmounts before any room renders (the .gamefs containing-block rule) */
+.castle-wrap { transition: transform .32s cubic-bezier(.6,0,.9,.6), opacity .32s ease; }
+.castle-wrap.zoom { transform: scale(2.6); opacity: 0; }
 
 /* hub/room entrances — finite keyframes ending with NO transform (gamefs rule) */
 .hub-enter { animation: hubIn .38s var(--ease-out); }
@@ -1679,6 +1695,8 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 
 @media (prefers-reduced-motion: reduce) {
-  .hub-avatar span, .castle-svg .badge-halo { animation: none; }
+  .hub-avatar span, .hub-avatar i, .castle-svg .badge-halo { animation: none; }
   .hub-enter { animation: none; }
+  .hub-avatar, .castle-wrap, .castle-svg .leaf { transition: none; }
+  .castle-wrap.zoom { transform: none; opacity: 1; }
 }

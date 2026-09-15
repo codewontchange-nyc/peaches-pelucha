@@ -28,26 +28,83 @@ export const doorCenter = (key) => {
   return { x: d.x + d.w / 2, y: d.y + d.h / 2 };
 };
 
-/* Tap choreography, phase 1: idle → opening (door glows ~260ms) → onEnter.
-   A timeout drives it (never trust terminal events on iOS); reduced-motion
-   short-circuits to ~80ms. */
+/* Tap choreography — the Mario-64 beat, timer-driven end to end (never trust
+   transitionend on iOS): idle → running (avatar walks to the door) → opening
+   (leaf swings, warm light) → zooming (the world dives into the doorway) →
+   onEnter(key). The hub then UNMOUNTS, so its zoom transform can never trap a
+   room's position:fixed overlays. A second tap mid-walk retargets; taps during
+   open/zoom are ignored; backgrounding mid-walk settles back to idle.
+   Reduced motion short-circuits to a 120ms door brighten. */
+const RUG = { x: 150, y: 640 };
 export function CastleHub({ me, balances, badges = {}, onEnter }) {
   const [opening, setOpening] = useState(null);
-  const timer = useRef(null);
+  const [zoom, setZoom] = useState(null);            // {ox, oy} px transform-origin
+  const [pos, setPos] = useState(RUG);               // avatar, viewBox units
+  const [face, setFace] = useState(1);
+  const [walking, setWalking] = useState(false);
+  const [walkMs, setWalkMs] = useState(0);
+  const wrapRef = useRef(null);
+  const timers = useRef([]);
+  const phase = useRef("idle");
   const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const onDoor = useCallback((key) => {
-    if (timer.current) return;                 // one door at a time
+  const later = (fn, ms) => timers.current.push(setTimeout(fn, ms));
+  const clearAll = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+
+  const openThenEnter = useCallback((key) => {
+    phase.current = "opening";
+    setWalking(false);
     setOpening(key);
     try { navigator.vibrate && navigator.vibrate(12); } catch {}
-    timer.current = setTimeout(() => { timer.current = null; setOpening(null); onEnter(key); }, reduced ? 80 : 300);
+    later(() => {
+      phase.current = "zooming";
+      // dive into the doorway: origin at the door's on-screen center
+      const el = wrapRef.current;
+      if (el && !reduced) {
+        const s = el.clientWidth / 390;
+        const c = doorCenter(key);
+        setZoom({ ox: c.x * s, oy: c.y * s + (el.querySelector(".castle-svg")?.offsetTop || 0) });
+      }
+      later(() => { phase.current = "idle"; clearAll(); onEnter(key); }, reduced ? 60 : 320);
+    }, reduced ? 120 : 260);
   }, [onEnter, reduced]);
-  useEffect(() => () => clearTimeout(timer.current), []);
 
-  return html`<div class="castle-wrap">
+  const onDoor = useCallback((key) => {
+    if (phase.current === "opening" || phase.current === "zooming") return;
+    clearAll();
+    if (reduced) { openThenEnter(key); return; }
+    // walk first: target just below the door, duration scaled by distance
+    const d = ROOMS[key].door;
+    const target = { x: d.x + d.w / 2, y: Math.min(d.y + d.h + 6, 648) };
+    const dist = Math.hypot(target.x - pos.x, target.y - pos.y);
+    const ms = Math.max(260, Math.min(760, dist * 2.1));
+    phase.current = "running";
+    setFace(target.x < pos.x ? -1 : 1);
+    setWalkMs(ms);
+    setPos(target);
+    setWalking(true);
+    later(() => openThenEnter(key), ms + 40);
+  }, [pos, reduced, openThenEnter]);
+
+  // backgrounded mid-walk → settle home (timers are unreliable while hidden)
+  useEffect(() => {
+    const settle = () => {
+      if (document.visibilityState === "visible" || phase.current === "idle") return;
+      clearAll(); phase.current = "idle";
+      setOpening(null); setZoom(null); setWalking(false); setPos(RUG);
+    };
+    document.addEventListener("visibilitychange", settle);
+    return () => { document.removeEventListener("visibilitychange", settle); clearAll(); };
+  }, []);
+
+  return html`<div ref=${wrapRef} class=${`castle-wrap ${zoom ? "zoom" : ""}`}
+    style=${zoom ? `transform-origin:${zoom.ox}px ${zoom.oy}px` : ""}>
     <div class="castle-bg"></div>
     <${CastleSVG} opening=${opening} badges=${badges} onDoor=${onDoor} />
-    <div class="hub-avatar"><span>${(me && me.emoji) || "💗"}</span></div>
+    <div class=${`hub-avatar ${walking ? "walking" : ""} ${opening ? "entering" : ""}`}
+      style=${`left:${(pos.x / 390 * 100).toFixed(2)}%; top:${(pos.y / 720 * 100).toFixed(2)}%; transition-duration:${walking ? walkMs : 0}ms`}>
+      <span style=${`transform:scaleX(${face})`}><i>${(me && me.emoji) || "💗"}</i></span>
+    </div>
   </div>`;
 }
 

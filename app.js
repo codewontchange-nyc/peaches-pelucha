@@ -275,8 +275,25 @@ function App({ client, onResetCreds }) {
     return () => { try { (window.cancelIdleCallback || clearTimeout)(h); } catch {} };
   }, []);
 
-  // castle-hub navigation: no dock, no tab swiping — the hub is the menu
+  // castle-hub navigation: no dock, no tab swiping — the hub is the menu.
+  // Inside a room, a rightward fling from the left screen edge goes home
+  // (iOS back-swipe muscle memory), with the same guards the old tab swipe had.
   const goTab = useCallback((to) => setTab(to), []);
+  const edgeRef = useRef(null);
+  const tabRef = useRef(tab); tabRef.current = tab;
+  const onEdgeDown = useCallback((e) => {
+    if (tabRef.current === "castle" || e.clientX > 28) return;
+    if (document.querySelector(".gamefs, .modal-bg, .lightbox, .viewer, .mapfull, .dailyfull, .dh-full, .fightfull")) return;
+    if (e.target.closest("input, textarea, [data-noswipe]")) return;
+    edgeRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+  }, []);
+  const onEdgeUp = useCallback((e) => {
+    const d = edgeRef.current; edgeRef.current = null;
+    if (!d) return;
+    const dx = e.clientX - d.x, dy = Math.abs(e.clientY - d.y);
+    const v = dx / Math.max(1, Date.now() - d.t);
+    if (dy < 80 && (dx > 70 || (dx > 30 && v > 0.5))) goTab("castle");
+  }, [goTab]);
 
   const flash = useCallback((msg) => {
     setToast(msg);
@@ -503,7 +520,8 @@ function App({ client, onResetCreds }) {
 
   return html`
     ${mem ? html`<div class="mem-bg"></div>` : hub ? null : html`<${PhotoBackdrop} client=${client} />`}
-    <div class=${`app-shell cool ${mem ? "mem" : ""} ${mapTab ? "map" : ""} ${hub ? "hub" : ""}`}>
+    <div class=${`app-shell cool ${mem ? "mem" : ""} ${mapTab ? "map" : ""} ${hub ? "hub" : ""}`}
+      onPointerDown=${onEdgeDown} onPointerUp=${onEdgeUp} onPointerCancel=${() => { edgeRef.current = null; }}>
       <div class="topbar">
         ${hub
           ? html`<div class="brand script">${coupleName}</div>
