@@ -14,6 +14,7 @@ import { RewardHome, RewardStrip } from "./rewards.js";
 import { FightMode, FightToggle } from "./fight.js";
 import { DailyShare, DailyHistory } from "./daily.js";
 import { pushStatus, enablePush, disablePush, ensurePush, notifyTurn } from "./push.js";
+import { CastleHub, ROOMS } from "./castle.js";
 import { get as idbGet, set as idbSet } from "https://esm.sh/idb-keyval@6";
 
 const html = htm.bind(h);
@@ -32,14 +33,8 @@ const PlansTab = lazyTab(() => import("./events.js"), "PlansTab");
 const MapTab = lazyTab(() => import("./map.js"), "MapCard");
 const JoinMe = lazyTab(() => import("./joinme.js"), "JoinMe");
 
-// Tab order drives the gesture-first navigation (swipe = step through this list)
-// and the floating dock. Score stays first — its warm Phase-10 world is home base.
-// "more" is intentionally off the dock — it's reached by tapping your name (rarely used)
-const TAB_ORDER = ["score", "plans", "map", "memories", "schmoney", "joinme"];
-const TAB_META = {
-  score: ["🏆", "Score"], plans: ["📅", "Plans"], map: ["🗺️", "Map"], memories: ["📸", "Memories"],
-  schmoney: ["💸", "Schmoney"], joinme: ["🧘", "Join Me"], more: ["⚙️", "More"],
-};
+// Navigation is the castle (castle.js): every room is a door in the hub, and
+// ROOMS is the registry — labels/emoji for the topbar come from there too.
 
 // Rotating photo-collage backdrop drawn from the couple's own memories. Heavily
 // blurred + cool-scrimmed (in CSS) so the glass panels and all text stay legible
@@ -262,7 +257,7 @@ function App({ client, onResetCreds }) {
   }, [loaded]);
 
   const [meId, setMeId] = useState(localStorage.getItem(LS.me) || "");
-  const [tab, setTab] = useState("score");
+  const [tab, setTab] = useState("castle");
   const [memUnseen, setMemUnseen] = useState(false);   // 📸 dot when partner added photos you haven't seen
   const [modal, setModal] = useState(null);       // {type, ...props}
   const [toast, setToast] = useState("");
@@ -280,60 +275,8 @@ function App({ client, onResetCreds }) {
     return () => { try { (window.cancelIdleCallback || clearTimeout)(h); } catch {} };
   }, []);
 
-  // ---- gesture-first navigation: swipe between tabs with spring physics ----
-  const [navDir, setNavDir] = useState(1);   // +1 = next (slide from right), -1 = prev
-  const tabIdx = TAB_ORDER.indexOf(tab);
-  const goTab = useCallback((to) => {
-    setTab((cur) => {
-      if (to === cur) return cur;
-      const from = TAB_ORDER.indexOf(cur), ti = TAB_ORDER.indexOf(to);
-      // "more" lives off the dock (reached by tapping your name) → slide in from the right
-      setNavDir(ti >= 0 && from >= 0 ? (ti > from ? 1 : -1) : 1);
-      return to;
-    });
-  }, []);
-  const swipeRef = useRef(null);
-  const dragRef = useRef(null);
-  const onSwipeDown = useCallback((e) => {
-    // never hijack the Phase 10 game (its block is marked [data-noswipe]), the
-    // full-screen board, a modal, or a text field.
-    if (document.querySelector(".gamefs, .modal-bg, .lightbox, .viewer, .mapfull")) return;   // board / modal / photo lightbox / video viewer / fullscreen map own their gestures
-    if (e.target.closest("input, textarea, [data-noswipe]")) return;
-    // bail if the touch starts inside a horizontal scroller (carousels etc.)
-    let n = e.target;
-    while (n && n !== swipeRef.current) {
-      const ox = getComputedStyle(n).overflowX;
-      if ((ox === "auto" || ox === "scroll") && n.scrollWidth > n.clientWidth + 2) return;
-      n = n.parentElement;
-    }
-    dragRef.current = { x: e.clientX, y: e.clientY, t: Date.now(), axis: null, dx: 0 };
-  }, []);
-  const onSwipeMove = useCallback((e) => {
-    const d = dragRef.current; if (!d) return;
-    const dx = e.clientX - d.x, dy = e.clientY - d.y;
-    if (!d.axis) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      d.axis = Math.abs(dx) > Math.abs(dy) * 1.25 ? "x" : "y";
-      if (d.axis === "y") { dragRef.current = null; return; }
-    }
-    d.dx = dx;
-    const i = TAB_ORDER.indexOf(tab);
-    const atEnd = (dx > 0 && i === 0) || (dx < 0 && i === TAB_ORDER.length - 1);
-    const el = swipeRef.current;
-    if (el) { el.style.transition = "none"; el.style.transform = `translateX(${dx * (atEnd ? 0.26 : 0.72)}px)`; }
-  }, [tab]);
-  const onSwipeUp = useCallback(() => {
-    const d = dragRef.current; dragRef.current = null;
-    const el = swipeRef.current;
-    if (el) { el.style.transition = "transform .4s cubic-bezier(.34,1.56,.64,1)"; el.style.transform = ""; }
-    if (!d || d.axis !== "x") return;
-    const v = d.dx / Math.max(1, Date.now() - d.t);
-    const i = TAB_ORDER.indexOf(tab);
-    if (Math.abs(d.dx) > 62 || Math.abs(v) > 0.45) {
-      if (d.dx < 0 && i < TAB_ORDER.length - 1) goTab(TAB_ORDER[i + 1]);
-      else if (d.dx > 0 && i > 0) goTab(TAB_ORDER[i - 1]);
-    }
-  }, [tab, goTab]);
+  // castle-hub navigation: no dock, no tab swiping — the hub is the menu
+  const goTab = useCallback((to) => setTab(to), []);
 
   const flash = useCallback((msg) => {
     setToast(msg);
@@ -548,8 +491,10 @@ function App({ client, onResetCreds }) {
 
   const ctx = { client, players, game, earnRules, rewards, txns, bets, balances, me, api, setModal, flash, setTab };
 
+  const hub = tab === "castle";     // the castle hub paints its own sky — no photo backdrop
   const mem = tab === "memories";   // Memories is its own white, full-bleed space — no glass container, no photo backdrop (that container broke the photo carousel)
   const mapTab = tab === "map";     // Map is full-bleed too (edge-to-edge preview), but keeps the cool glass world
+  const room = ROOMS[tab] || null;  // castle registry drives the room title chip
 
   // each couple's app is named after THEM (derived from their two players), so a
   // beta couple's app feels like theirs — not "Peaches & Pelucha".
@@ -557,10 +502,14 @@ function App({ client, onResetCreds }) {
   useEffect(() => { if (players.length) document.title = players.map((p) => p.name).join(" & "); }, [players]);
 
   return html`
-    ${mem ? html`<div class="mem-bg"></div>` : html`<${PhotoBackdrop} client=${client} />`}
-    <div class=${`app-shell cool ${mem ? "mem" : ""} ${mapTab ? "map" : ""}`}>
+    ${mem ? html`<div class="mem-bg"></div>` : hub ? null : html`<${PhotoBackdrop} client=${client} />`}
+    <div class=${`app-shell cool ${mem ? "mem" : ""} ${mapTab ? "map" : ""} ${hub ? "hub" : ""}`}>
       <div class="topbar">
-        <div class="brand script">${coupleName}</div>
+        ${hub
+          ? html`<div class="brand script">${coupleName}</div>
+                 <button class="hubcoin" onClick=${() => goTab("schmoney")}>💗 ${balances[me.id] ?? 0}</button>`
+          : html`<button class="whoami backchip" onClick=${() => goTab("castle")}>‹ 🏰</button>
+                 <div class="roomtitle">${room ? `${room.emoji} ${room.label}` : ""}</div>`}
         <button class="whoami" onClick=${() => goTab("more")}>
           <span class="av" style=${`background:${me.color}22`}>${me.emoji}</span>
           ${me.name}
@@ -569,34 +518,38 @@ function App({ client, onResetCreds }) {
 
       ${err && html`<div class="banner" style="background:#ffeef1;color:#b00020">⚠️ ${err}</div>`}
 
-      <div class="swipe-wrap" key=${tab}
-        ref=${swipeRef} onPointerDown=${onSwipeDown} onPointerMove=${onSwipeMove}
-        onPointerUp=${onSwipeUp} onPointerCancel=${onSwipeUp}>
-        <${Settle} dir=${navDir} key=${tab}>
-        <${ErrorBoundary} key=${tab}>
-          ${tab === "score" && html`<${ScoreTab} ...${ctx} />`}
-          ${tab === "plans" && html`<${PlansTab} client=${client} me=${me} players=${players} flash=${flash} />`}
-          ${tab === "map" && html`<${MapTab} client=${client} me=${me} players=${players} flash=${flash} />`}
-          ${tab === "memories" && html`<${MemoriesTab} client=${client} me=${me} players=${players} flash=${flash} />`}
-          ${tab === "schmoney" && html`<${Fragment}>
-            <${WalletTab} ...${ctx} />
-            <${BetsTab} ...${ctx} />
-            <${ShopTab} ...${ctx} />
-          <//>`}
-          ${tab === "joinme" && html`<${JoinMe} client=${client} me=${me} players=${players} flash=${flash} />`}
-          ${tab === "more" && html`<${MoreTab} ...${ctx} onResetCreds=${onResetCreds} />`}
-        <//>
-        <//>
-      </div>
-
-      <nav class="dock">
-        <div class="dock-puck" style=${tabIdx < 0 ? "opacity:0" : `transform:translateX(${tabIdx * 56}px)`}></div>
-        ${TAB_ORDER.map((k) => html`
-          <button class=${tab === k ? "active" : ""} aria-label=${TAB_META[k][1]} onClick=${() => goTab(k)}>
-            ${TAB_META[k][0]}
-            ${k === "memories" && memUnseen ? html`<span class="dock-dot"></span>` : ""}
-          </button>`)}
-      </nav>
+      ${hub
+        ? html`<div class="hub-enter">
+            <${BirthdayBanner} me=${me} players=${players} />
+            <${CastleHub} me=${me} balances=${balances} badges=${{ memories: memUnseen }} onEnter=${goTab} />
+          </div>`
+        : html`<div class="swipe-wrap" key=${tab}>
+            <${Settle} dir=${1} key=${tab}>
+            <${ErrorBoundary} key=${tab}>
+              ${tab === "gameroom" && html`<${GameRoom} ...${ctx} />`}
+              ${tab === "chapel" && html`<${ChapelRoom} ...${ctx} />`}
+              ${tab === "plans" && html`<${Fragment}>
+                <${PlansTab} client=${client} me=${me} players=${players} flash=${flash} />
+                <${DateRoulette} client=${client} me=${me} players=${players} flash=${flash}
+                  onPlan=${(pick) => { window.__ppPlanPrefill = pick; window.dispatchEvent(new Event("pp-plan-prefill")); }} />
+              <//>`}
+              ${tab === "map" && html`<${MapTab} client=${client} me=${me} players=${players} flash=${flash} />`}
+              ${tab === "memories" && html`<${Fragment}>
+                <${MemoryThread} client=${client} me=${me} players=${players}
+                  onOpenMemory=${(id) => { window.__ppFocusMemory = id; window.dispatchEvent(new Event("pp-focus-memory")); }} />
+                <${MemoriesTab} client=${client} me=${me} players=${players} flash=${flash} />
+              <//>`}
+              ${tab === "schmoney" && html`<${Fragment}>
+                <${RewardHome} client=${client} me=${me} players=${players} flash=${flash} />
+                <${WalletTab} ...${ctx} />
+                <${BetsTab} ...${ctx} />
+                <${ShopTab} ...${ctx} />
+              <//>`}
+              ${tab === "joinme" && html`<${JoinMe} client=${client} me=${me} players=${players} flash=${flash} />`}
+              ${tab === "more" && html`<${MoreTab} ...${ctx} onResetCreds=${onResetCreds} />`}
+            <//>
+            <//>
+          </div>`}
 
       <${FightMode} client=${client} me=${me} players=${players} />
       <${DailyShare} client=${client} me=${me} players=${players} />
@@ -800,20 +753,17 @@ function Settle({ children, dir }) {
   return html`<div ref=${ref} class=${ready ? (dir > 0 ? "pane-from-r" : "pane-from-l") : "settling"}>${children}</div>`;
 }
 
-function ScoreTab(ctx) {
-  // The home page: Phase 10 at the top, then lifetime, horoscopes, scripture,
-  // and the date roulette.
+// 🎴 Game Room — Phase 10 and its lifetime scores, nothing else.
+function GameRoom(ctx) {
+  return html`<div data-noswipe><${PlayTab} ...${ctx} /></div>`;
+}
+
+// ☀️ Sunroom — the quiet corner: scripture, gratitude, the daily question.
+function ChapelRoom(ctx) {
   return html`<${Fragment}>
-    <${BirthdayBanner} me=${ctx.me} players=${ctx.players} />
-    <${RewardHome} client=${ctx.client} me=${ctx.me} players=${ctx.players} flash=${ctx.flash} />
-    <div data-noswipe><${PlayTab} ...${ctx} /></div>
-    <${ScriptureCard} />
-    <${GratitudeCard} client=${ctx.client} me=${ctx.me} players=${ctx.players} flash=${ctx.flash} />
     <${DailyHistory} client=${ctx.client} me=${ctx.me} players=${ctx.players} />
-    <${MemoryThread} client=${ctx.client} me=${ctx.me} players=${ctx.players}
-      onOpenMemory=${(id) => { window.__ppFocusMemory = id; ctx.setTab("memories"); }} />
-    <${DateRoulette} client=${ctx.client} me=${ctx.me} players=${ctx.players} flash=${ctx.flash}
-      onPlan=${(pick) => { window.__ppPlanPrefill = pick; ctx.setTab("plans"); }} />
+    <${GratitudeCard} client=${ctx.client} me=${ctx.me} players=${ctx.players} flash=${ctx.flash} />
+    <${ScriptureCard} />
   <//>`;
 }
 

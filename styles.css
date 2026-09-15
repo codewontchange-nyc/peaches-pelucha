@@ -1623,3 +1623,62 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 }
 .dailynudge { cursor: pointer; }
 .dailynudge .dh-q { font-family: Fraunces, serif; font-size: 1.05rem; }
+
+/* ============================================================================
+   🏰 The Castle — hub-world navigation (castle.js). Storybook flat-vector,
+   all original art. NB: nothing here may put a persistent transform, filter,
+   or will-change on an ancestor of room content — same rule as .swipe-wrap
+   (it would trap the Phase 10 board's position:fixed .gamefs).
+   ========================================================================== */
+.app-shell.hub { padding-left: 0; padding-right: 0; padding-bottom: 0; }
+.app-shell.hub .topbar { margin-left: 0; margin-right: 0; }
+/* the sky continues past the SVG on tall/wide screens */
+.castle-bg { position: fixed; inset: 0; z-index: -1;
+  background: linear-gradient(180deg, #22344a 0%, #3d5670 55%, #59728b 82%, #2c4438 96%); }
+.castle-wrap { position: relative; }
+.castle-svg { display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; }
+
+/* doors: the whole group is tappable; the warm light layer fades in on open */
+.castle-svg .door { cursor: pointer; }
+.castle-svg .door-hit { fill: transparent; stroke: none; }
+.castle-svg .doorlight { opacity: 0; transition: opacity .22s ease; pointer-events: none; }
+.castle-svg .door.open .doorlight { opacity: 1; }
+.castle-svg .doorlight.lit { opacity: .5; }         /* badge glow (e.g. unanswered daily) */
+.castle-svg .door-label { fill: rgba(253,246,227,.78); font-family: var(--sans); font-size: 9px;
+  font-weight: 700; letter-spacing: .14em; text-anchor: middle; pointer-events: none; }
+.castle-svg .door-glyph { text-anchor: middle; pointer-events: none; }
+/* only the invisible hit rect receives taps (art layers stay inert) */
+.castle-svg .door * { pointer-events: none; }
+.castle-svg .door rect.door-hit { pointer-events: all; }
+
+/* door badges: soft pulsing beacon */
+.castle-svg .badge-dot { fill: #e85d75; stroke: #fdf6e3; stroke-width: 2; }
+.castle-svg .badge-halo { fill: #e85d75; opacity: .35; transform-box: fill-box; transform-origin: center;
+  animation: badgePulse 2s ease-in-out infinite; }
+@keyframes badgePulse { 0%, 100% { transform: scale(1); opacity: .35; } 50% { transform: scale(1.7); opacity: 0; } }
+
+/* the player, standing on the foyer rug (walks in phase 2) */
+.hub-avatar { position: absolute; left: 38.5%; top: 88.5%; transform: translate(-50%, -100%);
+  font-size: 30px; line-height: 1; pointer-events: none;
+  filter: drop-shadow(0 4px 6px rgba(10,16,22,.45)); }
+.hub-avatar span { display: inline-block; animation: hubBob 2.6s ease-in-out infinite; }
+@keyframes hubBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+/* hub/room entrances — finite keyframes ending with NO transform (gamefs rule) */
+.hub-enter { animation: hubIn .38s var(--ease-out); }
+@keyframes hubIn { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+
+/* topbar chips: back-to-castle + room title + hearts counter */
+.backchip { font-size: 15px; padding: 6px 13px; }
+.roomtitle { flex: 1; min-width: 0; font-family: var(--serif); font-weight: 500; font-size: 17.5px;
+  color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-shell.mem .roomtitle { color: var(--c-ink); }
+.hubcoin { margin-left: auto; border: 1px solid var(--glass-line); background: var(--glass);
+  color: #fff; border-radius: var(--r-pill); padding: 6px 13px; font-weight: 700; font-size: 14px;
+  font-variant-numeric: tabular-nums; cursor: pointer;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-avatar span, .castle-svg .badge-halo { animation: none; }
+  .hub-enter { animation: none; }
+}

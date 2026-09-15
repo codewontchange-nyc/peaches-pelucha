@@ -202,10 +202,17 @@ export function PlansTab({ client, me, players, flash }) {
     return () => { try { client.removeChannel(ch); } catch {} document.removeEventListener("visibilitychange", wake); };
   }, [client, load]);
 
-  // prefill from the Roulette's "Add to calendar"
+  // prefill from the Roulette's "Add to calendar" — on mount, and via the
+  // pp-plan-prefill event (the Roulette now lives in this same room, so the
+  // component is already mounted when a pick lands)
   useEffect(() => {
-    const p = window.__ppPlanPrefill;
-    if (p) { window.__ppPlanPrefill = null; setCompose({ emoji: p.emoji || "💗", title: p.title || "", date: todayISO(), time: "", kind: "invite", notes: "", location: "" }); }
+    const go = () => {
+      const p = window.__ppPlanPrefill;
+      if (p) { window.__ppPlanPrefill = null; setCompose({ emoji: p.emoji || "💗", title: p.title || "", date: todayISO(), time: "", kind: "invite", notes: "", location: "" }); }
+    };
+    go();
+    window.addEventListener("pp-plan-prefill", go);
+    return () => window.removeEventListener("pp-plan-prefill", go);
   }, []);
 
   const upcoming = (events || []).filter((e) => e.starts_on >= todayISO());

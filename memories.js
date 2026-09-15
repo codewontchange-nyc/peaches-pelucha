@@ -526,9 +526,11 @@ export function MemoriesTab({ client, me, players = [], flash }) {
     return () => io.disconnect();
   }, [loadMore, view, items === null, dayOpen]);
 
-  // Opened from the home Reactions thread: jump straight to that memory's
-  // lightbox once it's in the loaded window. Pull more pages if it's older.
-  useEffect(() => {
+  // Opened from the Reactions thread: jump straight to that memory's lightbox
+  // once it's in the loaded window. Pull more pages if it's older. The thread
+  // now lives in this same room, so also listen for its pp-focus-memory event
+  // (the items-change effect alone wouldn't fire on a tap while already here).
+  const focusWanted = useCallback(() => {
     if (!items) return;
     const want = window.__ppFocusMemory;
     if (!want) return;
@@ -536,6 +538,11 @@ export function MemoriesTab({ client, me, players = [], flash }) {
     if (idx >= 0) { window.__ppFocusMemory = null; setView("gallery"); setLightbox(idx); }
     else if (!more.current.done) loadMore();          // not loaded yet → fetch more, effect re-runs
   }, [items, loadMore]);
+  useEffect(() => { focusWanted(); }, [focusWanted]);
+  useEffect(() => {
+    window.addEventListener("pp-focus-memory", focusWanted);
+    return () => window.removeEventListener("pp-focus-memory", focusWanted);
+  }, [focusWanted]);
 
   // Concurrent upload queue (2 lanes) with per-file status — photos shrink
   // on-device first; videos go as-is. Two lanes (not three) keeps fewer large

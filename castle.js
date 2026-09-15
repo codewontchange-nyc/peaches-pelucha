@@ -1,0 +1,220 @@
+import { h } from "https://esm.sh/preact@10.23.2";
+import { useState, useRef, useEffect, useCallback } from "https://esm.sh/preact@10.23.2/hooks";
+import htm from "https://esm.sh/htm@3.1.1";
+
+const html = htm.bind(h);
+
+/* 🏰 The Castle — the app's hub world (Mario 64 energy, storybook flat-vector
+   art, all original). One phone screen: a cutaway castle whose doors ARE the
+   navigation. Tap a door → it glows open → the room mounts. The ROOMS registry
+   is the single source of truth for door geometry (SVG viewBox units), labels,
+   and badge anchors; app.js reads it for room titles too.
+   viewBox is 0 0 390 720 (drawn under the ~64px sticky topbar). */
+
+export const ROOMS = {
+  gameroom: { label: "Game Room",   emoji: "🎴", door: { x: 48,  y: 470, w: 78,  h: 110 } },
+  chapel:   { label: "Sunroom",     emoji: "☀️", door: { x: 286, y: 162, w: 52,  h: 94 } },
+  plans:    { label: "Ballroom",    emoji: "💃", door: { x: 224, y: 310, w: 104, h: 132 } },
+  map:      { label: "Observatory", emoji: "🔭", door: { x: 40,  y: 172, w: 62,  h: 62 } },
+  memories: { label: "Gallery",     emoji: "🖼️", door: { x: 56,  y: 314, w: 112, h: 116 } },
+  schmoney: { label: "Vault",       emoji: "💗", door: { x: 210, y: 478, w: 88,  h: 88 } },
+  joinme:   { label: "Garden",      emoji: "🌿", door: { x: 328, y: 486, w: 44,  h: 92 } },
+  more:     { label: "Workshop",    emoji: "🔧", door: { x: 168, y: 602, w: 54,  h: 40 } },
+};
+
+// door center in viewBox units — the avatar walk target (phase 2) + zoom origin
+export const doorCenter = (key) => {
+  const d = ROOMS[key].door;
+  return { x: d.x + d.w / 2, y: d.y + d.h / 2 };
+};
+
+/* Tap choreography, phase 1: idle → opening (door glows ~260ms) → onEnter.
+   A timeout drives it (never trust terminal events on iOS); reduced-motion
+   short-circuits to ~80ms. */
+export function CastleHub({ me, balances, badges = {}, onEnter }) {
+  const [opening, setOpening] = useState(null);
+  const timer = useRef(null);
+  const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const onDoor = useCallback((key) => {
+    if (timer.current) return;                 // one door at a time
+    setOpening(key);
+    try { navigator.vibrate && navigator.vibrate(12); } catch {}
+    timer.current = setTimeout(() => { timer.current = null; setOpening(null); onEnter(key); }, reduced ? 80 : 300);
+  }, [onEnter, reduced]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  return html`<div class="castle-wrap">
+    <div class="castle-bg"></div>
+    <${CastleSVG} opening=${opening} badges=${badges} onDoor=${onDoor} />
+    <div class="hub-avatar"><span>${(me && me.emoji) || "💗"}</span></div>
+  </div>`;
+}
+
+/* ---- the castle drawing ---------------------------------------------- */
+// door group helper: hit rect + label live with the art
+const Door = ({ k, opening, badge, onDoor, children }) => {
+  const d = ROOMS[k].door;
+  const cx = d.x + d.w / 2;
+  return html`<g class=${`door ${opening === k ? "open" : ""}`} onClick=${() => onDoor(k)}>
+    ${children}
+    <text class="door-label" x=${cx} y=${d.y + d.h + 15}>${ROOMS[k].label.toUpperCase()}</text>
+    ${badge && html`<g class="door-badge">
+      <circle cx=${d.x + d.w - 2} cy=${d.y + 2} r="10" class="badge-halo" />
+      <circle cx=${d.x + d.w - 2} cy=${d.y + 2} r="7.5" class="badge-dot" />
+    </g>`}
+    <rect class="door-hit" x=${cx - 34} y=${d.y - 8} width="68" height=${Math.max(d.h + 26, 68)} />
+  </g>`;
+};
+
+function CastleSVG({ opening, badges, onDoor }) {
+  return html`<svg class="castle-svg" viewBox="0 0 390 720" xmlns="http://www.w3.org/2000/svg" role="navigation" aria-label="Castle">
+    <defs>
+      <linearGradient id="c-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#22344a" />
+        <stop offset=".62" stop-color="#3d5670" />
+        <stop offset="1" stop-color="#59728b" />
+      </linearGradient>
+      <linearGradient id="c-wall" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#f8f2e9" />
+        <stop offset="1" stop-color="#efe5d6" />
+      </linearGradient>
+      <linearGradient id="c-glow" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffe9b8" />
+        <stop offset="1" stop-color="#f7c97e" />
+      </linearGradient>
+      <linearGradient id="c-paint" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#7fa3c0" />
+        <stop offset="1" stop-color="#cfdde8" />
+      </linearGradient>
+    </defs>
+
+    <!-- sky -->
+    <rect x="0" y="0" width="390" height="720" fill="url(#c-sky)" />
+    <g fill="#fdf6e3" opacity=".85">
+      <circle cx="38" cy="46" r="1.6"/><circle cx="96" cy="24" r="1.2"/><circle cx="152" cy="58" r="1.4"/>
+      <circle cx="238" cy="30" r="1.2"/><circle cx="300" cy="52" r="1.6"/><circle cx="354" cy="26" r="1.2"/>
+      <circle cx="192" cy="18" r="1.1"/><circle cx="330" cy="86" r="1.1"/><circle cx="64" cy="88" r="1.1"/>
+    </g>
+    <circle cx="330" cy="64" r="17" fill="#f7ecd2" opacity=".95" />
+    <circle cx="324" cy="58" r="4" fill="#e8dcbc" opacity=".6" />
+
+    <!-- lawn -->
+    <rect x="0" y="648" width="390" height="72" fill="#2c4438" />
+    <ellipse cx="195" cy="652" rx="260" ry="16" fill="#35513f" />
+
+    <!-- towers -->
+    <g stroke="#3a2f28" stroke-width="2">
+      <rect x="24" y="112" width="94" height="548" fill="url(#c-wall)" />
+      <rect x="272" y="112" width="94" height="548" fill="url(#c-wall)" />
+      <path d="M14 116 L71 44 L128 116 Z" fill="#c15f3c" />
+      <path d="M262 116 L319 44 L376 116 Z" fill="#c15f3c" />
+    </g>
+    <line x1="71" y1="44" x2="71" y2="24" stroke="#3a2f28" stroke-width="2" />
+    <path d="M71 24 L96 31 L71 38 Z" fill="#e8a48f" stroke="#3a2f28" stroke-width="1.5" />
+    <line x1="319" y1="44" x2="319" y2="24" stroke="#3a2f28" stroke-width="2" />
+    <path d="M319 24 L344 31 L319 38 Z" fill="#e8a48f" stroke="#3a2f28" stroke-width="1.5" />
+
+    <!-- keep (center block) + battlements -->
+    <rect x="102" y="158" width="186" height="502" fill="url(#c-wall)" stroke="#3a2f28" stroke-width="2" />
+    <g fill="#efe5d6" stroke="#3a2f28" stroke-width="2">
+      <rect x="102" y="144" width="26" height="16" /><rect x="142" y="144" width="26" height="16" />
+      <rect x="182" y="144" width="26" height="16" /><rect x="222" y="144" width="26" height="16" />
+      <rect x="262" y="144" width="26" height="16" />
+    </g>
+    <!-- rose window -->
+    <circle cx="195" cy="216" r="26" fill="#f3d9c8" stroke="#3a2f28" stroke-width="2" />
+    <circle cx="195" cy="216" r="16" fill="none" stroke="#c15f3c" stroke-width="2" />
+    <path d="M195 200 v32 M179 216 h32 M184 205 l22 22 M206 205 l-22 22" stroke="#c15f3c" stroke-width="1.6" />
+
+    <!-- floor lines (cutaway hint) -->
+    <g stroke="#d8c9b4" stroke-width="1.5">
+      <line x1="30" y1="292" x2="360" y2="292" />
+      <line x1="30" y1="456" x2="360" y2="456" />
+      <line x1="30" y1="592" x2="360" y2="592" />
+    </g>
+
+    <!-- foyer checker floor -->
+    <g fill="#e2d4bf" opacity=".8">
+      <rect x="120" y="644" width="18" height="10"/><rect x="156" y="644" width="18" height="10"/>
+      <rect x="192" y="644" width="18" height="10"/><rect x="228" y="644" width="18" height="10"/>
+      <rect x="138" y="654" width="18" height="6"/><rect x="174" y="654" width="18" height="6"/>
+      <rect x="210" y="654" width="18" height="6"/><rect x="246" y="654" width="18" height="6"/>
+    </g>
+
+    <!-- ================= doors (registry-driven) ================= -->
+
+    <!-- 🔭 Observatory: round porthole in the left tower -->
+    <${Door} k="map" opening=${opening} badge=${badges.map} onDoor=${onDoor}>
+      <circle cx="71" cy="203" r="33" fill="#20344a" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
+      <circle cx="71" cy="203" r="33" fill="url(#c-glow)" class="doorlight" />
+      <circle cx="71" cy="203" r="25" fill="none" stroke="#b9852e" stroke-width="2" />
+      <text class="door-glyph" x="71" y="212" font-size="24">🔭</text>
+    <//>
+
+    <!-- ☀️ Sunroom: arched window in the right tower -->
+    <${Door} k="chapel" opening=${opening} badge=${badges.chapel} onDoor=${onDoor}>
+      <path d="M286 256 v-68 a26 26 0 0 1 52 0 v68 Z" fill="#2c4054" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
+      <path d="M286 256 v-68 a26 26 0 0 1 52 0 v68 Z" fill="url(#c-glow)" class=${`doorlight ${badges.chapel ? "lit" : ""}`} />
+      <line x1="312" y1="188" x2="312" y2="256" stroke="#b9852e" stroke-width="2" />
+      <text class="door-glyph" x="312" y="228" font-size="22">☀️</text>
+    <//>
+
+    <!-- 🖼 Gallery: the gilt painting you jump into -->
+    <${Door} k="memories" opening=${opening} badge=${badges.memories} onDoor=${onDoor}>
+      <rect x="56" y="314" width="112" height="116" rx="6" fill="#b9852e" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
+      <rect x="66" y="324" width="92" height="96" rx="3" fill="url(#c-paint)" />
+      <rect x="66" y="324" width="92" height="96" rx="3" fill="url(#c-glow)" class="doorlight" />
+      <path d="M66 398 q24 -26 46 -6 q22 20 46 -12 v40 h-92 Z" fill="#4c7a5e" />
+      <circle cx="140" cy="344" r="9" fill="#fdf6e3" />
+      <text class="door-glyph" x="112" y="380" font-size="22">🖼️</text>
+    <//>
+
+    <!-- 💃 Ballroom: tall double doors -->
+    <${Door} k="plans" opening=${opening} badge=${badges.plans} onDoor=${onDoor}>
+      <path d="M224 442 v-104 a52 52 0 0 1 104 0 v104 Z" fill="#8a4a33" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
+      <path d="M224 442 v-104 a52 52 0 0 1 104 0 v104 Z" fill="url(#c-glow)" class="doorlight" />
+      <line x1="276" y1="338" x2="276" y2="442" stroke="#3a2f28" stroke-width="2" />
+      <circle cx="266" cy="394" r="3.5" fill="#e8c98f" /><circle cx="286" cy="394" r="3.5" fill="#e8c98f" />
+      <text class="door-glyph" x="276" y="404" font-size="24">💃</text>
+    <//>
+
+    <!-- 🎴 Game Room: arched door, card pediment -->
+    <${Door} k="gameroom" opening=${opening} badge=${badges.gameroom} onDoor=${onDoor}>
+      <path d="M48 580 v-72 a39 39 0 0 1 78 0 v72 Z" fill="#5b3b2c" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
+      <path d="M48 580 v-72 a39 39 0 0 1 78 0 v72 Z" fill="url(#c-glow)" class="doorlight" />
+      <circle cx="112" cy="544" r="3.5" fill="#e8c98f" />
+      <text class="door-glyph" x="87" y="552" font-size="24">🎴</text>
+    <//>
+
+    <!-- 💗 Vault: round door, heart keyhole -->
+    <${Door} k="schmoney" opening=${opening} badge=${badges.schmoney} onDoor=${onDoor}>
+      <circle cx="254" cy="522" r="44" fill="#7d8894" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
+      <circle cx="254" cy="522" r="44" fill="url(#c-glow)" class="doorlight" />
+      <circle cx="254" cy="522" r="33" fill="none" stroke="#5c6670" stroke-width="3" />
+      <circle cx="254" cy="522" r="44" fill="none" stroke="#b9852e" stroke-width="1.5" stroke-dasharray="3 7" />
+      <text class="door-glyph" x="254" y="532" font-size="24">💗</text>
+    <//>
+
+    <!-- 🌿 Garden: gate at the right edge -->
+    <${Door} k="joinme" opening=${opening} badge=${badges.joinme} onDoor=${onDoor}>
+      <path d="M328 578 v-64 a22 22 0 0 1 44 0 v64 Z" fill="#24404f" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
+      <path d="M328 578 v-64 a22 22 0 0 1 44 0 v64 Z" fill="url(#c-glow)" class="doorlight" />
+      <g stroke="#4c7a5e" stroke-width="3" stroke-linecap="round">
+        <path d="M334 578 v-58 M344 578 v-64 M356 578 v-64 M366 578 v-58" />
+      </g>
+      <text class="door-glyph" x="350" y="552" font-size="20">🌿</text>
+    <//>
+
+    <!-- 🔧 Workshop: basement hatch -->
+    <${Door} k="more" opening=${opening} badge=${badges.more} onDoor=${onDoor}>
+      <rect x="168" y="602" width="54" height="40" rx="6" fill="#4a423a" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
+      <rect x="168" y="602" width="54" height="40" rx="6" fill="url(#c-glow)" class="doorlight" />
+      <line x1="176" y1="612" x2="214" y2="612" stroke="#6a5f52" stroke-width="2" />
+      <text class="door-glyph" x="195" y="630" font-size="16">🔧</text>
+    <//>
+
+    <!-- avatar rug -->
+    <ellipse cx="150" cy="649" rx="34" ry="9" fill="#c15f3c" opacity=".55" />
+  </svg>`;
+}
