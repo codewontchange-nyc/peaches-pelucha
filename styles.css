@@ -280,11 +280,20 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .fchip.rsvp { color: var(--accent); border-color: var(--accent); }
 .fchip.rsvp.on { background: var(--accent); border-color: var(--accent); color: #fff8f3; }
 
-.elist { display: flex; flex-direction: column; gap: 8px; }
-.erow { background: var(--paper-2); border: 1px solid transparent; border-radius: 14px; padding: 12px 14px; cursor: pointer; }
-.erow.ask { border-color: var(--accent); background: var(--accent-soft); }
-.erow.sel { background: var(--surface); border-color: var(--ink-3); }
-.erow .em { font-size: 20px; }
+.elist { display: flex; flex-direction: column; }
+/* day dividers: a small serif day label + hairline, rows sit flat beneath it */
+.eday + .eday { margin-top: 16px; }
+.eday-head { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.eday-label { font-family: var(--serif); font-weight: 500; font-size: 14.5px; letter-spacing: -0.01em; color: var(--ink-2); white-space: nowrap; }
+.eday-rule { flex: 1; border-top: 1px solid var(--line-2); }
+.erow { background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 10px 4px; cursor: pointer; }
+.erow + .erow { border-top: 1px solid var(--line-2); }
+.erow.ask { border-color: var(--accent); background: var(--accent-soft); padding: 10px 12px; }
+.erow.ask + .erow { border-top-color: transparent; }
+.erow.sel { background: var(--surface); padding: 10px 12px; }
+.erow.sel + .erow { border-top-color: transparent; }
+.erow .em { font-size: 18px; }
+.erow .etime { margin-left: 8px; }
 .erow-detail { border-top: 1px solid var(--line-2); margin-top: 10px; padding-top: 10px; display: grid; gap: 3px; }
 
 /* ---- editorial agenda ---- */
@@ -861,56 +870,13 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .bchips .pcard { cursor: pointer; }
 .bempty { font-size: 11px; color: var(--ink-3); font-weight: 500; }
 
-/* segmented toggle (Watch tab: Shares / Queue) */
-.gameswitch { display: flex; gap: 6px; background: var(--paper-2); border-radius: var(--r-pill);
-  padding: 4px; margin-bottom: 14px; }
-.gameswitch button { flex: 1; border: none; background: none; border-radius: var(--r-pill);
-  padding: 9px 0; font-size: 14px; font-weight: 600; color: var(--ink-2); cursor: pointer;
-  transition: background .18s ease, color .18s ease, box-shadow .18s ease; }
-.gameswitch button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 4px rgba(43,37,33,.1); }
-
-/* ---- 📺 watch: shared social queue ---- */
 /* 6-tab nav: a touch tighter */
 .nav button { font-size: 10px; padding: 6px 1px; }
 .nav button span:last-child { white-space: nowrap; }
 
-.watch-paste { display: flex; flex-direction: column; gap: 8px; }
-.watch-paste input { width: 100%; }
-.watch-actions { display: flex; align-items: center; gap: 8px; }
-.wchip { font-size: 12px; font-weight: 700; color: var(--ink-2); background: var(--paper-2); border-radius: var(--r-pill); padding: 5px 11px; margin-right: auto; }
-.watch-actions .btn { flex: 0 0 auto; }
-
-.wsec { margin-top: 14px; }
 .weyebrow { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin: 4px 0 8px; }
 
-.wcard { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--surface);
-  border: 1px solid var(--line-2); border-radius: var(--r); padding: 9px; margin-bottom: 8px; cursor: pointer;
-  position: relative; transition: border-color .15s ease, transform .08s ease; }
-.wcard:active { transform: scale(.99); }
-.wthumb { position: relative; width: 62px; height: 62px; flex: 0 0 auto; border-radius: 10px; overflow: hidden;
-  background: var(--paper-2); display: grid; place-content: center; }
-.wthumb img { width: 100%; height: 100%; object-fit: cover; }
-.wthumb .wicon { font-size: 26px; }
-.wthumb.tiktok { background: #f1f1f3; } .wthumb.instagram { background: #fbeef4; } .wthumb.youtube { background: #fbe9e7; }
-.wplay { position: absolute; inset: 0; display: grid; place-content: center; color: #fff; font-size: 18px; text-shadow: 0 1px 6px rgba(0,0,0,.5); pointer-events: none; }
-.wmeta { flex: 1; min-width: 0; }
-.wtitle { font-weight: 600; font-size: 13.5px; display: flex; align-items: center; gap: 6px; }
-.wdot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; }
-.wnote { font-size: 13px; color: var(--ink); font-style: italic; margin: 1px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wsub { margin-top: 1px; }
-.wrx { display: flex; gap: 3px; margin-top: 4px; font-size: 15px; }
-.wdel { position: absolute; top: 6px; right: 8px; color: var(--ink-3); font-size: 13px; padding: 4px; }
-
-.wgate { text-align: center; border: 1px solid var(--line); border-radius: var(--r); padding: 22px 16px; background: var(--paper-2); }
-/* 🗄 archive strip at the foot of the Watch card → full-screen log (dh-full) */
-.warchbtn { display: flex; align-items: center; justify-content: space-between; width: 100%;
-  margin-top: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm);
-  background: var(--paper-2); color: var(--ink-2); font-weight: 600; font-size: 13px; cursor: pointer; }
-.warch-list .wcard { width: 100%; }
-.wgate-icon { font-size: 38px; }
-.wgate-count { font-family: var(--serif); font-size: 18px; font-weight: 500; margin: 6px 0 4px; }
-
-/* viewer */
+/* viewer (map / gratitude / rewards full-screen embeds) */
 .viewer { position: fixed; inset: 0; z-index: 90; background: #110d0b; display: flex; flex-direction: column;
   align-items: center; gap: 14px; padding: 0 12px calc(16px + var(--safe-bottom)); animation: fade .15s ease; }
 .vw-bar { width: 100%; max-width: 480px; display: flex; align-items: center; gap: 10px; padding: calc(var(--safe-top) + 10px) 2px 4px; }
@@ -1090,9 +1056,6 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .app-shell.cool .pill.on, .app-shell.cool .pill.active, .app-shell.cool .seg.on {
   background: var(--c-accent); color: #fff; border-color: transparent; box-shadow: 0 6px 14px -7px var(--c-accent);
 }
-.app-shell.cool .gameswitch { background: var(--glass); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.app-shell.cool .gameswitch button.on { background: #fff; color: var(--c-ink); }
-
 /* inputs / fields → glass */
 .app-shell.cool .field, .app-shell.cool input[type=text], .app-shell.cool input:not([type]), .app-shell.cool textarea, .app-shell.cool input[type=number], .app-shell.cool input[type=date] {
   background: rgba(255,255,255,.7); border: 1px solid var(--glass-line); border-radius: 13px; color: var(--c-ink);
@@ -1121,13 +1084,15 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .app-shell.cool .fchip { background: var(--glass); border: 1px solid var(--glass-line); color: var(--c-ink-2); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: transform .24s var(--spring), background .2s ease, color .2s ease; }
 .app-shell.cool .fchip:active { transform: scale(.93); }
 .app-shell.cool .fchip.on { background: var(--c-accent); color: #fff; border-color: transparent; box-shadow: 0 6px 16px -7px var(--c-accent); }
-.app-shell.cool .erow { background: var(--glass); border: 1px solid var(--glass-line); border-radius: 16px; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); transition: transform .24s var(--spring); }
+/* calendar rows stay inline/minimal even in the glass world — hairlines, not cards */
+.app-shell.cool .erow { background: transparent; border: 1px solid transparent; border-radius: 12px; transition: transform .24s var(--spring); }
+.app-shell.cool .erow + .erow { border-top: 1px solid var(--glass-line); border-radius: 0 0 12px 12px; }
+.app-shell.cool .erow.ask { background: var(--accent-soft); border-color: var(--c-accent); border-radius: 12px; }
+.app-shell.cool .erow.sel { background: var(--glass); border-color: var(--glass-line); border-radius: 12px; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 .app-shell.cool .erow:active { transform: scale(.985); }
+.app-shell.cool .eday-label { color: var(--c-ink-2); }
+.app-shell.cool .eday-rule { border-top-color: var(--glass-line); }
 .app-shell.cool .evhero { background: var(--glass); border: 1px solid var(--glass-line); border-radius: 22px; -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
-
-/* Watch (watch.js) */
-.app-shell.cool .wcard { background: var(--glass); border: 1px solid var(--glass-line); border-radius: 18px; box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4); }
-.app-shell.cool .wtitle { color: var(--c-ink); }
 
 /* Memories (memories.js) — keep it photo-forward, just cooler labels + rounder tiles */
 .app-shell.cool .memday { color: var(--c-ink); }
@@ -1191,8 +1156,7 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 /* one consistent glass-card radius (cards were 22/18; rows/controls keep their own) */
 .app-shell.cool .card,
 .app-shell.cool .evhero,
-.app-shell.cool .score-tile,
-.app-shell.cool .wcard { border-radius: 20px; }
+.app-shell.cool .score-tile { border-radius: 20px; }
 /* dock label legible over any photo region */
 .dock-label { text-shadow: 0 1px 6px rgba(20,33,46,.26); }
 /* crisper, cooler modal grab handle */
@@ -1675,65 +1639,10 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   margin: 16px 2px 20px; max-width: 62ch; }
 .bookend { text-align: center; color: var(--ink-2); font-size: 15px; letter-spacing: .5em; margin: 6px 0 18px; padding-left: .5em; }
 
-/* ---------------------------------------------------------- cooking 🍳 --- */
+/* ------------------------------------------------- shopping list 🧺 ------ */
+/* quiet, hairline, editorial */
 .mkpill { font-size: 12px; font-weight: 700; color: var(--accent-press); background: var(--accent-soft);
   border-radius: 999px; padding: 5px 11px; white-space: nowrap; }
-.cookweek { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
-  color: var(--ink-2); margin: -6px 0 8px; }
-
-/* --- the three nights: a snapping carousel of day cards --- */
-.mealcarousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
-  margin: 2px -16px 0; padding: 4px 16px 10px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-.mealcarousel::-webkit-scrollbar { display: none; }
-.mealcard { flex: 0 0 72%; max-width: 250px; scroll-snap-align: center; border-radius: 18px;
-  padding: 16px 15px 14px; display: flex; flex-direction: column; align-items: center; text-align: center;
-  min-height: 172px; transition: background .3s ease, border-color .3s ease; }
-.mealcard.empty { border: 1.5px dashed var(--line); background: transparent; }
-.mealcard.draft { border: 1px solid var(--line); background: var(--paper-2); }
-.mealcard.locked { border: 1px solid rgba(193,95,60,.28);
-  background: linear-gradient(165deg, #fdeee6 0%, #fbdcc9 100%); }
-.mealcard.out { border: 1px solid rgba(20,33,46,.14); background: linear-gradient(165deg, #eef2f4 0%, #e2e9ec 100%); }
-.mealcard.tonight { box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 3.5px rgba(193,95,60,.35); }
-.mc-tonight { display: inline-block; margin-left: 6px; font-size: 9.5px; font-weight: 800; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--accent-press); background: var(--accent-soft); border-radius: 999px; padding: 2px 7px; vertical-align: 2px; }
-.mc-outbig { font-family: var(--serif); font-size: 18px; color: #3d4d58; margin: auto 0 2px; }
-.mc-foot { margin-top: auto; padding-top: 8px; }
-.mc-flip { border: none; background: none; color: var(--ink-2); opacity: .7; font-size: 12px; cursor: pointer; }
-.mc-top { display: flex; flex-direction: column; align-items: center; gap: 1px; margin-bottom: 10px; }
-.mc-emoji { font-size: 22px; line-height: 1.2; }
-.mc-night { font-weight: 700; font-size: 14px; color: var(--ink); }
-.mc-cook { font-size: 11.5px; color: var(--ink-2); }
-.mealcard.locked .mc-night { color: #4a2c1a; }
-.mealcard.locked .mc-cook { color: rgba(74,44,26,.65); }
-.mc-pick { border: none; background: none; color: var(--ink-2); opacity: .75; cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 13px; padding: 8px 6px; margin: auto 0; }
-.mc-plus { width: 34px; height: 34px; border: 1.5px dashed var(--line); border-radius: 999px;
-  display: flex; align-items: center; justify-content: center; font-size: 17px; }
-.mc-dish { border: none; background: none; cursor: pointer; font-family: var(--serif); font-size: 19px;
-  line-height: 1.25; color: var(--ink); padding: 2px 0 0; max-width: 100%; }
-.mealcard.locked .mc-dish { color: #4a2c1a; }
-.mc-input { width: 100%; font-family: var(--serif); font-size: 16px; text-align: center; padding: 7px 10px; }
-.mc-lock { margin-top: 9px; border: none; border-radius: 999px; background: var(--accent); color: #fff;
-  font-weight: 700; font-size: 12.5px; padding: 7px 14px; cursor: pointer; }
-.mc-locked { margin-top: 8px; font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  color: #8a5a2a; }
-.mc-ings { justify-content: center; margin-top: 10px; }
-
-/* ingredient chips (shared by cards + list) */
-.ingrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.ingchip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 8px;
-  border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.55); cursor: pointer; }
-.ingchip.got { opacity: .45; text-decoration: line-through; }
-.ingmk { font-weight: 800; font-size: 9.5px; color: var(--accent-press); background: var(--accent-soft);
-  border-radius: 999px; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; }
-.ingx { opacity: .45; font-size: 10px; padding: 2px; }
-.ingadd { border: 1px dashed var(--line); background: none; border-radius: 999px; width: 24px; height: 24px;
-  color: var(--ink-2); cursor: pointer; font-size: 13px; line-height: 1; }
-.inginput { font-size: 13px; padding: 4px 10px; border-radius: 999px; width: 128px; }
-
-/* --- shopping list: quiet, hairline, editorial --- */
-.buyhead { display: flex; align-items: baseline; justify-content: space-between; margin: 16px 0 8px; }
-.buytitle { font-family: var(--serif); font-size: 19px; color: var(--ink); }
 .buybar { display: flex; gap: 8px; align-items: center; margin-bottom: 2px; }
 .buybar input { flex: 1; min-width: 0; border-radius: 999px; }
 .mkseg { display: flex; gap: 4px; }
@@ -1754,7 +1663,6 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   transition: background .15s ease, border-color .15s ease; }
 .buyline.got .buychk { background: var(--accent); border-color: var(--accent); }
 .buylabel { flex: 1; min-width: 0; font-size: 14.5px; cursor: pointer; }
-.buymeal { font-size: 11px; color: var(--ink-2); margin-left: 7px; }
 .buyx { background: none; border: none; color: var(--ink-2); opacity: .4; cursor: pointer; font-size: 11px; }
 
 /* non-blocking daily: "answer later" escape + home nudge card */

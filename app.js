@@ -28,7 +28,6 @@ function lazyTab(loader, name) {
   };
 }
 const MemoriesTab = lazyTab(() => import("./memories.js"), "MemoriesTab");
-const WatchTab = lazyTab(() => import("./watch.js"), "WatchTab");
 const PlansTab = lazyTab(() => import("./events.js"), "PlansTab");
 const MapTab = lazyTab(() => import("./map.js"), "MapCard");
 const JoinMe = lazyTab(() => import("./joinme.js"), "JoinMe");
@@ -276,7 +275,7 @@ function App({ client, onResetCreds }) {
     const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1500));
     const h = idle(() => {
       import("./events.js"); import("./map.js"); import("./memories.js");
-      import("./watch.js"); import("./joinme.js");
+      import("./joinme.js");
     });
     return () => { try { (window.cancelIdleCallback || clearTimeout)(h); } catch {} };
   }, []);
@@ -813,7 +812,6 @@ function ScoreTab(ctx) {
     <${DailyHistory} client=${ctx.client} me=${ctx.me} players=${ctx.players} />
     <${MemoryThread} client=${ctx.client} me=${ctx.me} players=${ctx.players}
       onOpenMemory=${(id) => { window.__ppFocusMemory = id; ctx.setTab("memories"); }} />
-    <${WatchTab} client=${ctx.client} me=${ctx.me} players=${ctx.players} flash=${ctx.flash} />
     <${DateRoulette} client=${ctx.client} me=${ctx.me} players=${ctx.players} flash=${ctx.flash}
       onPlan=${(pick) => { window.__ppPlanPrefill = pick; ctx.setTab("plans"); }} />
   <//>`;

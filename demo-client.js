@@ -35,40 +35,12 @@ function seed() {
     ],
     bets: [],
     matches: [],
-    social_links: [
-      // fresh share, seen minutes ago → stays in the live list
-      { id: uid(), url: "https://youtu.be/dQw4w9WgXcQ", platform: "youtube", video_id: "dQw4w9WgXcQ", mode: "share",
-        sender_id: pelucha, recipient_id: peaches, note: "this is so us", seen_at: new Date(Date.now() - 20 * 60e3).toISOString(),
-        reactions: [{ by: peaches, emoji: "😂", at: new Date(Date.now() - 18 * 60e3).toISOString() }], status: "active", archived_at: null, created_at: new Date(Date.now() - 3600e3).toISOString() },
-      // watched 2 days ago → the sweep should retire it to the archive on load
-      { id: uid(), url: "https://youtu.be/9bZkp7q19f0", platform: "youtube", video_id: "9bZkp7q19f0", mode: "share",
-        sender_id: peaches, recipient_id: pelucha, note: "wait for the end", seen_at: new Date(Date.now() - 2 * 864e5).toISOString(),
-        reactions: [{ by: pelucha, emoji: "💀", at: new Date(Date.now() - 2 * 864e5).toISOString() }], status: "active", archived_at: null, created_at: new Date(Date.now() - 3 * 864e5).toISOString() },
-      // a queue night already cleared → straight in the archive
-      { id: uid(), url: "https://www.tiktok.com/@x/video/7200000000000000000", platform: "tiktok", video_id: "7200000000000000000", mode: "queue",
-        sender_id: pelucha, recipient_id: null, note: null, seen_at: null,
-        reactions: [], status: "watched", archived_at: new Date(Date.now() - 5 * 864e5).toISOString(), created_at: new Date(Date.now() - 6 * 864e5).toISOString() },
-    ],
+    social_links: [],
     watch_state: [],
-    meals: (() => {
-      const t = new Date();
-      const s = new Date(t.getFullYear(), t.getMonth(), t.getDate() - t.getDay());
-      const ws = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, "0")}-${String(s.getDate()).padStart(2, "0")}`;
-      const mk = (night, extra) => ({ id: uid(), week_start: ws, night, title: "", cook_name: "", cook_emoji: "", confirmed: false, eating_out: false, updated_at: nowISO(), ...extra });
-      return [
-        mk("sun", { title: "Lemon pasta", cook_name: "Peaches", cook_emoji: "🍑", confirmed: true }),
-        mk("mon", { cook_name: "Pelucha", cook_emoji: "🧸" }),
-        mk("tue", { title: "Tacos night", cook_name: "together", cook_emoji: "🍑🧸" }),
-        mk("wed", {}),
-        mk("thu", { eating_out: true }),
-        mk("fri", {}),
-        mk("sat", {}),
-      ];
-    })(),
     shopping_items: [
-      { id: uid(), label: "lemons", meal_night: "sun", market: "sat", done: false, created_by: peaches, created_at: nowISO() },
-      { id: uid(), label: "basil", meal_night: "sun", market: "sat", done: true, created_by: peaches, created_at: nowISO() },
-      { id: uid(), label: "tortillas", meal_night: "tue", market: "mon", done: false, created_by: pelucha, created_at: nowISO() },
+      { id: uid(), label: "lemons", meal_night: null, market: "sat", done: false, created_by: peaches, created_at: nowISO() },
+      { id: uid(), label: "basil", meal_night: null, market: "sat", done: true, created_by: peaches, created_at: nowISO() },
+      { id: uid(), label: "tortillas", meal_night: null, market: "mon", done: false, created_by: pelucha, created_at: nowISO() },
       { id: uid(), label: "flowers for the table", meal_night: null, market: "sat", done: false, created_by: pelucha, created_at: nowISO() },
       { id: uid(), label: "olive oil", meal_night: null, market: null, done: false, created_by: peaches, created_at: nowISO() },
     ],
@@ -186,7 +158,6 @@ const DEFAULTS = {
   memories: { kind: "photo", uploaded_by: null, place: null, lat: null, lng: null, thumb_path: null, blur: null },
   social_links: { platform: "other", video_id: null, mode: "share", sender_id: null, recipient_id: null, note: null, seen_at: null, reactions: [], status: "active", archived_at: null },
   todos: { due_on: null, done: false, done_at: null, created_by: null },
-  meals: { week_start: null, night: "", title: "", cook_name: "", cook_emoji: "", confirmed: false, eating_out: false, updated_at: null },
   shopping_items: { label: "", meal_night: null, market: null, done: false, created_by: null },
   date_ideas: { emoji: "✨", category: "food", active: true, added_by: null },
   date_spins: { emoji: "✨", category: "food", spun_by: null },

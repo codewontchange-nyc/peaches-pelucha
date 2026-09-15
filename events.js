@@ -2,7 +2,7 @@ import { h } from "https://esm.sh/preact@10.23.2";
 import { useState, useEffect, useCallback } from "https://esm.sh/preact@10.23.2/hooks";
 import htm from "https://esm.sh/htm@3.1.1";
 import { notifyTurn } from "./push.js";
-import { CookingCard } from "./cooking.js";
+import { ShoppingCard } from "./shopping.js";
 
 const html = htm.bind(h);
 
@@ -349,7 +349,7 @@ export function PlansTab({ client, me, players, flash }) {
         <div class="l" style="display:flex;align-items:center;gap:10px;min-width:0">
           <span class="em">${e.emoji}</span>
           <div class="txt" style="min-width:0"><b>${e.title}</b>
-            <span class="tiny muted" style="display:block">${dayLabel(e.starts_on)}${e.starts_at ? " · " + timeLabel(e.starts_at) : ""}</span></div>
+            ${e.starts_at && html`<span class="tiny muted etime">${timeLabel(e.starts_at)}</span>`}</div>
         </div>
         ${needsAnswer ? html`<span class="pill open">RSVP</span>`
           : e.kind === "invite" && e.rsvp === "in" ? html`<span class="pill win">in 💗</span>`
@@ -393,7 +393,19 @@ export function PlansTab({ client, me, players, flash }) {
           <button class=${`fchip ${activeFilter === "beyond" ? "on" : ""}`} onClick=${() => setFilter("beyond")}>& beyond!</button>
         </div>`}
         <div class="elist">
-          ${filtered.map(ERow)}
+          ${(() => {
+            // group the filtered list into days so a serif divider sits between them
+            const days = [];
+            for (const e of filtered) {
+              let d = days[days.length - 1];
+              if (!d || d.date !== e.starts_on) { d = { date: e.starts_on, items: [] }; days.push(d); }
+              d.items.push(e);
+            }
+            return days.map((day) => html`<div class="eday" key=${day.date}>
+              <div class="eday-head"><span class="eday-label">${dayLabel(day.date)}</span><span class="eday-rule"></span></div>
+              ${day.items.map(ERow)}
+            </div>`);
+          })()}
           ${upcoming.length > 0 && filtered.length === 0 && html`<div class="empty tiny">nothing here — lucky you, go add something</div>`}
         </div>
       `}
@@ -446,7 +458,7 @@ export function PlansTab({ client, me, players, flash }) {
       `}
     </div>
 
-    <${CookingCard} client=${client} me=${me} players=${players} flash=${flash} />
+    <${ShoppingCard} client=${client} me=${me} players=${players} flash=${flash} />
 
     <${TodoCard} client=${client} me=${me} players=${players} flash=${flash} />
 
