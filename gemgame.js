@@ -2,6 +2,7 @@ import { h } from "https://esm.sh/preact@10.23.2";
 import { useState, useEffect, useRef, useCallback } from "https://esm.sh/preact@10.23.2/hooks";
 import htm from "https://esm.sh/htm@3.1.1";
 import * as G from "./gems.js";
+import { GemMap } from "./gemmap.js";
 
 const html = htm.bind(h);
 
@@ -16,20 +17,52 @@ const COLORS = ["#e8617a", "#ffd166", "#7fb069", "#5aa7d6", "#c4a6ff", "#ff9e7d"
 const RIMS   = ["#c64360", "#d9a827", "#5d8a4e", "#3d83b0", "#9a79e8", "#e07a5f", "#15706e"];
 const JOURNEY_SEED = "gq1";
 
-/* ---- sprites: each color pre-rendered once per size (hot loop = drawImage) */
+/* ---- sprites: everything pre-rendered once per size (hot loop = drawImage) */
+const SHAPES = ["circle", "diamond", "heart", "star", "drop", "square", "tri"];
+function shapePath(g, kind, cx, cy, s) {
+  g.beginPath();
+  if (kind === "diamond") { g.moveTo(cx, cy - s); g.lineTo(cx + s, cy); g.lineTo(cx, cy + s); g.lineTo(cx - s, cy); }
+  else if (kind === "heart") { g.moveTo(cx, cy + s * 0.8); g.bezierCurveTo(cx - s * 1.4, cy - s * 0.4, cx - s * 0.5, cy - s * 1.2, cx, cy - s * 0.3); g.bezierCurveTo(cx + s * 0.5, cy - s * 1.2, cx + s * 1.4, cy - s * 0.4, cx, cy + s * 0.8); }
+  else if (kind === "star") { for (let i = 0; i < 10; i++) { const rr = i % 2 ? s * 0.45 : s; const a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(cx + rr * Math.cos(a), cy + rr * Math.sin(a)); } }
+  else if (kind === "drop") { g.moveTo(cx, cy - s); g.bezierCurveTo(cx + s, cy, cx + s * 0.7, cy + s, cx, cy + s); g.bezierCurveTo(cx - s * 0.7, cy + s, cx - s, cy, cx, cy - s); }
+  else if (kind === "square") g.rect(cx - s * 0.75, cy - s * 0.75, s * 1.5, s * 1.5);
+  else if (kind === "tri") { g.moveTo(cx, cy - s); g.lineTo(cx + s * 0.95, cy + s * 0.75); g.lineTo(cx - s * 0.95, cy + s * 0.75); }
+  else g.arc(cx, cy, s * 0.7, 0, Math.PI * 2);
+  g.closePath();
+}
 function makeSprites(px) {
-  return COLORS.map((fill, i) => {
-    const c = document.createElement("canvas");
-    c.width = c.height = px;
-    const g = c.getContext("2d");
-    const r = px / 2;
+  const mk = (paint) => { const c = document.createElement("canvas"); c.width = c.height = px; paint(c.getContext("2d"), px / 2); return c; };
+  const ball = (g, r, fill, rim) => {
     g.beginPath(); g.arc(r, r, r - 1, 0, Math.PI * 2);
     g.fillStyle = fill; g.fill();
-    g.lineWidth = Math.max(2, px * 0.07); g.strokeStyle = RIMS[i]; g.stroke();
+    g.lineWidth = Math.max(2, px * 0.07); g.strokeStyle = rim; g.stroke();
     g.beginPath(); g.arc(r - r * 0.32, r - r * 0.36, r * 0.22, 0, Math.PI * 2);
     g.fillStyle = "rgba(255,255,255,.75)"; g.fill();
-    return c;
+  };
+  const colors = COLORS.map((fill, i) => mk((g, r) => ball(g, r, fill, RIMS[i])));
+  const shapes = COLORS.map((fill, i) => mk((g, r) => {
+    ball(g, r, fill, RIMS[i]);
+    shapePath(g, SHAPES[i], r, r, r * 0.5);
+    g.fillStyle = "rgba(255,255,255,.85)"; g.fill();
+    g.lineWidth = Math.max(1.5, px * 0.03); g.strokeStyle = RIMS[i]; g.stroke();
+  }));
+  const stone = mk((g, r) => { ball(g, r, "#a9a29a", "#6f6a63"); g.fillStyle = "rgba(0,0,0,.14)"; g.beginPath(); g.arc(r * 1.2, r * 1.25, r * 0.3, 0, Math.PI * 2); g.fill(); });
+  const bomb = mk((g, r) => { ball(g, r, "#4a423a", "#2b2521"); g.font = `${r}px system-ui`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("💥", r, r * 1.05); });
+  const star = mk((g, r) => { ball(g, r, "#ffd166", "#d9a827"); shapePath(g, "star", r, r, r * 0.55); g.fillStyle = "#fff8e1"; g.fill(); g.strokeStyle = "#d9a827"; g.lineWidth = Math.max(1.5, px * 0.03); g.stroke(); });
+  const rainbow = mk((g, r) => {
+    const grad = g.createConicGradient ? g.createConicGradient(0, r, r) : null;
+    if (grad) { COLORS.forEach((c2, i) => grad.addColorStop(i / COLORS.length, c2)); grad.addColorStop(1, COLORS[0]); g.fillStyle = grad; }
+    else g.fillStyle = "#c4a6ff";
+    g.beginPath(); g.arc(r, r, r - 1, 0, Math.PI * 2); g.fill();
+    g.lineWidth = Math.max(2, px * 0.07); g.strokeStyle = "#fff"; g.stroke();
+    g.beginPath(); g.arc(r - r * 0.32, r - r * 0.36, r * 0.22, 0, Math.PI * 2); g.fillStyle = "rgba(255,255,255,.8)"; g.fill();
   });
+  const cage = mk((g, r) => {
+    g.strokeStyle = "rgba(43,37,33,.65)"; g.lineWidth = Math.max(2, px * 0.055); g.lineCap = "round";
+    for (let i = -2; i <= 2; i++) { const x = r + i * r * 0.42; g.beginPath(); g.moveTo(x, r * 0.25); g.lineTo(x, px - r * 0.25); g.stroke(); }
+    g.beginPath(); g.arc(r, r, r - 2, 0, Math.PI * 2); g.stroke();
+  });
+  return { colors, shapes, stone, bomb, star, rainbow, cage };
 }
 
 /* ================= the playable surface (gamefs) ======================== */
@@ -83,7 +116,16 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
     g.clearRect(0, 0, cv.width, cv.height);
     g.setTransform(s * dpr, 0, 0, s * dpr, offX * dpr, 0);
     const yOff = st.drops * G.ROWH;
-    const sprite = (code) => st.sprites[+code % st.sprites.length];
+    const sp = st.sprites;
+    const shapeMode = st.run.shapeMode;
+    const sprite = (code) => {
+      if (code === "S") return sp.stone;
+      if (code === "B") return sp.bomb;
+      if (code === "*") return sp.star;
+      if (code === "W") return sp.rainbow;
+      const col = +(code[0] === "C" ? code.slice(1) : code) % sp.colors.length;
+      return (shapeMode ? sp.shapes : sp.colors)[col];
+    };
     const px = 2 * G.R;
 
     // descended-ceiling fringe
@@ -93,11 +135,15 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       g.fillStyle = "rgba(138,90,68,.5)";
       g.fillRect(0, yOff - 60, G.WUNITS, 60);
     }
-    // board
+    // board (caged gems wear the bars overlay)
     st.display.forEach((row, r) => row.forEach((v, c) => {
       if (v == null) return;
-      g.drawImage(sprite(v), G.cellX(r, c) - G.R, G.cellY(r) + yOff - G.R, px, px);
+      const x = G.cellX(r, c) - G.R, y = G.cellY(r) + yOff - G.R;
+      g.drawImage(sprite(v), x, y, px, px);
+      if (v[0] === "C") g.drawImage(sp.cage, x, y, px, px);
     }));
+    // storm gem dropping in
+    if (st.anim && st.anim.storm) { const s2 = st.anim.storm; g.drawImage(sprite(s2.code), s2.x - G.R, s2.y - G.R, px, px); }
     // falling gems
     for (const f of st.falling) g.drawImage(sprite(f.code), f.x - G.R, f.y - G.R, px, px);
     // aim preview: the dotted line IS the flight (same simulate)
@@ -173,6 +219,15 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
         }
         a.fly.seg = seg; a.fly.t = t;
         if (seg >= a.fly.path.length - 1) { a.fly = null; nextEvent(); }
+      } else if (a.storm) {
+        a.storm.t += dt;
+        const k = Math.min(1, a.storm.t / a.storm.dur);
+        a.storm.y = a.storm.y0 + (a.storm.y1 - a.storm.y0) * k * k;   // accelerating drop
+        if (k >= 1) {
+          while (st.display.length <= a.storm.r) st.display.push(new Array(G.colsIn(st.display.length)).fill(null));
+          st.display[a.storm.r][a.storm.c] = a.storm.code;
+          nextEvent();
+        }
       } else if (a.wait > 0) {
         a.wait -= dt;
         if (a.wait <= 0) nextEvent();
@@ -206,8 +261,9 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       for (const [r, c] of ev.cells) {
         const code = st.display[r] && st.display[r][c];
         if (st.display[r]) st.display[r][c] = null;
+        const ci = parseInt(G.colorOf(code) ?? "0", 10) % COLORS.length;
         for (let i = 0; i < 8 && st.particles.length < 160; i++) {
-          st.particles.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vx: (Math.random() - 0.5) * G.R / 22, vy: (Math.random() - 0.7) * G.R / 22, r: G.R * (0.12 + Math.random() * 0.16), life: 420, life0: 420, color: COLORS[+(code || 0) % COLORS.length] });
+          st.particles.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vx: (Math.random() - 0.5) * G.R / 22, vy: (Math.random() - 0.7) * G.R / 22, r: G.R * (0.12 + Math.random() * 0.16), life: 420, life0: 420, color: COLORS[ci] });
         }
       }
       try { navigator.vibrate && navigator.vibrate(12); } catch {}
@@ -222,6 +278,27 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       st.anim = { wait: 120 };
     }
     else if (ev.t === "descend") { st.drops = ev.drops; st.anim = { wait: 200 }; }
+    else if (ev.t === "uncage") {
+      for (const [r, c] of ev.cells) {
+        const v = st.display[r] && st.display[r][c];
+        if (v && v[0] === "C") st.display[r][c] = v.slice(1);
+        for (let i = 0; i < 5 && st.particles.length < 160; i++)
+          st.particles.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vx: (Math.random() - 0.5) * G.R / 26, vy: (Math.random() - 0.8) * G.R / 26, r: G.R * 0.12, life: 320, life0: 320, color: "#4a423a" });
+      }
+      st.anim = { wait: 90 };
+    }
+    else if (ev.t === "boom") {
+      for (const [r, c] of ev.cells) {
+        if (st.display[r]) st.display[r][c] = null;
+        for (let i = 0; i < 10 && st.particles.length < 160; i++)
+          st.particles.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vx: (Math.random() - 0.5) * G.R / 14, vy: (Math.random() - 0.6) * G.R / 14, r: G.R * (0.14 + Math.random() * 0.2), life: 500, life0: 500, color: i % 3 ? "#ffd166" : "#ff9e7d" });
+      }
+      try { navigator.vibrate && navigator.vibrate(24); } catch {}
+      st.anim = { wait: 200 };
+    }
+    else if (ev.t === "storm") {
+      st.anim = { storm: { r: ev.r, c: ev.c, code: ev.code, x: G.cellX(ev.r, ev.c), y0: -2 * G.R, y1: G.cellY(ev.r) + yOff, y: -2 * G.R, t: 0, dur: 300 } };
+    }
     else st.anim = { wait: 10 };                     // next / clear / dead — HUD updates at finish
   }, []);
 
@@ -312,7 +389,9 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
     <div class="gemfs-hud">
       <span class="gemfs-pips">${Array.from({ length: hud ? hud.moveEvery : 0 }, (_, i) => html`<i key=${i} class=${i < pips ? "on" : ""}></i>`)}</span>
       <button class="gemfs-next" onClick=${swap} title="Swap">
-        next <span class="gemdot" style=${`background:${COLORS[+(hud && hud.next || 0) % COLORS.length]}`}></span> ⇄
+        next <span class="gemdot" style=${`background:${hud && hud.next === "W"
+          ? "conic-gradient(#e8617a,#ffd166,#7fb069,#5aa7d6,#c4a6ff,#e8617a)"
+          : COLORS[parseInt(G.colorOf((hud && hud.next) || "0") ?? "0", 10) % COLORS.length]}`}></span> ⇄
       </button>
     </div>
     <div class="gemfs-stage" ref=${wrapRef}>
@@ -338,7 +417,8 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
 export function GemQuestCard({ client, me, players, flash }) {
   const partner = players.find((p) => p.id !== me.id);
   const [prog, setProg] = useState(null);            // all gem_progress rows
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(null);      // null | {level}
+  const [mapOpen, setMapOpen] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await client.from("gem_progress").select("*").order("level");
@@ -363,28 +443,43 @@ export function GemQuestCard({ client, me, players, flash }) {
   const theirLevel = theirs.reduce((m, r) => (r.stars > 0 ? Math.max(m, r.level) : m), 0);
   const myBest = mine.reduce((m, r) => Math.max(m, r.best_score), 0);
 
-  // select→insert-or-update (the demo builder has no upsert)
+  // select→insert-or-update (the demo builder has no upsert). A FIRST clear
+  // (the insert path) pays hearts — single-writer: my phone only awards ME,
+  // and the unique(player_id, level) constraint dedupes cross-session races.
   const saveClear = useCallback(async (level, stars, score) => {
     try {
       const { data } = await client.from("gem_progress").select("*").eq("player_id", me.id).eq("level", level);
       const row = data && data[0];
-      if (!row) await client.from("gem_progress").insert({ player_id: me.id, level, stars, best_score: score });
-      else if (stars > row.stars || score > row.best_score)
+      if (!row) {
+        const { error } = await client.from("gem_progress").insert({ player_id: me.id, level, stars, best_score: score });
+        if (!error) {
+          const amount = level % 5 === 0 ? 3 : 1;
+          await client.from("transactions").insert({ player_id: me.id, amount, type: "earn", description: `Gem Quest: level ${level} cleared 💎` });
+          flash(`+${amount} 💗 for level ${level}!`);
+        }
+      } else if (stars > row.stars || score > row.best_score)
         await client.from("gem_progress").update({ stars: Math.max(stars, row.stars), best_score: Math.max(score, row.best_score), updated_at: new Date().toISOString() }).eq("id", row.id);
       load();
     } catch {}
-  }, [client, me.id, load]);
+  }, [client, me.id, load, flash]);
 
-  if (playing) return html`<${GemPlay} me=${me} startLevel=${myLevel}
+  if (playing) return html`<${GemPlay} me=${me} startLevel=${playing.level}
     onCleared=${saveClear}
-    onExit=${() => { setPlaying(false); load(); }} />`;
+    onExit=${() => { setPlaying(null); load(); }} />`;
 
-  return html`<div class="card gamehero gemhero" onClick=${() => setPlaying(true)}>
+  if (mapOpen) return html`<${GemMap} me=${me} partner=${partner} prog=${prog || []}
+    onPlay=${(level) => { setMapOpen(false); setPlaying({ level }); }}
+    onClose=${() => setMapOpen(false)} />`;
+
+  return html`<div class="card gamehero gemhero">
     <div class="eyebrow">Gem Quest 💎</div>
     <div class="gamehero-title">Level ${myLevel}</div>
     <div class="gamehero-meta tnum">
       ${myBest ? `best ${myBest}` : "a new journey"}${partner && theirLevel ? ` · ${partner.emoji} is on ${theirLevel + 1}` : ""}
     </div>
-    <button class="btn gamehero-btn">Play ▸</button>
+    <div class="row" style="gap:10px; justify-content:center">
+      <button class="btn gamehero-btn" onClick=${() => setPlaying({ level: myLevel })}>Play ▸</button>
+      <button class="btn ghost" onClick=${() => setMapOpen(true)}>🗺 Journey</button>
+    </div>
   </div>`;
 }

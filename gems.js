@@ -48,14 +48,66 @@ export function neighbors(r, c) {
 const inBoard = (rows, r, c) => r >= 0 && r < rows.length && c >= 0 && c < colsIn(r);
 const at = (rows, r, c) => (inBoard(rows, r, c) ? rows[r][c] : null);
 
+/* ---- codes ----------------------------------------------------------------
+   "0".."6" colors · "S" stone (unmatchable, orphan it) · "B" bomb (blast on
+   adjacent pop) · "*" star (clears the triggering color) · "C<n>" caged color
+   (first pop frees it, second pops it) · "W" rainbow (shot-only wildcard). */
+export const colorOf = (code) => {
+  if (code == null) return null;
+  if (code >= "0" && code <= "9") return code;
+  if (code[0] === "C") return code.slice(1);
+  return null;                                   // S, B, *, W
+};
+
 /* ---- difficulty curve ---------------------------------------------------- */
 export function difficulty(levelNo) {
   const gift = levelNo % 5 === 0;
   const palette = gift ? 3 : Math.min(7, 4 + (levelNo >= 8 ? 1 : 0) + (levelNo >= 20 ? 1 : 0) + (levelNo >= 40 ? 1 : 0));
   const rowsInit = gift ? 2 : Math.min(7, 3 + Math.floor(levelNo / 3));
-  const formation = gift ? "rows" : levelNo < 6 ? "rows" : (levelNo % 3 === 0 ? "blob" : "rows");
+  // formation rotation — every level type reappears on a fixed cadence
+  let formation = "rows";
+  if (!gift && levelNo >= 6) {
+    if (levelNo % 10 === 7 && levelNo >= 17) formation = "heart";
+    else if (levelNo % 4 === 2 && levelNo >= 12) formation = "ring";
+    else if (levelNo % 4 === 0 && levelNo >= 14) formation = "rope";
+    else if (levelNo % 4 === 3 && levelNo >= 16) formation = "spiral";
+    else if (levelNo % 3 === 0) formation = "blob";
+  }
   const moveEvery = Math.max(3, 6 - Math.floor(levelNo / 10));   // misses per descend
-  return { palette, rowsInit, formation, moveEvery, gift };
+  const shapeMode = !gift && levelNo >= 7 && levelNo % 7 === 0;  // match by SHAPE glyphs
+  const stormy = !gift && levelNo >= 18 && levelNo % 9 === 0;    // the sky shoots back
+  const specials = {
+    stone: gift ? 0 : levelNo >= 9 ? 0.07 : 0,
+    caged: gift ? 0 : levelNo >= 13 ? 0.06 : 0,
+    bomb:  gift ? 0 : levelNo >= 11 ? 0.035 : 0,
+    star:  gift ? 0 : levelNo >= 15 ? 0.02 : 0,
+  };
+  return { palette, rowsInit, formation, moveEvery, gift, shapeMode, stormy, specials };
+}
+
+/* formation masks — pure functions of (r, c, rowsTotal) */
+const HEART = [
+  "011011000", "111111100", "111111100", "011111000", "001110000", "000100000",
+];
+function keepCell(formation, r, c, rowsTotal) {
+  const nx = (cellX(r, c) - WUNITS / 2) / (WUNITS / 2);        // -1..1
+  const ny = rowsTotal > 1 ? r / (rowsTotal - 1) : 0;          // 0..1
+  if (formation === "blob") return nx * nx + ny * ny * 0.55 <= 0.92 || r === 0;
+  if (formation === "ring") {
+    const d = Math.sqrt(nx * nx + (ny - 0.5) * (ny - 0.5) * 2.6);
+    return (d >= 0.34 && d <= 0.95) || r === 0;
+  }
+  if (formation === "spiral") {
+    const ang = Math.atan2(ny - 0.45, nx);
+    const d = Math.sqrt(nx * nx + (ny - 0.45) * (ny - 0.45) * 2.2);
+    return ((ang + d * 5.2) % (Math.PI * 0.9) + Math.PI * 0.9) % (Math.PI * 0.9) < Math.PI * 0.52 || r === 0;
+  }
+  if (formation === "rope") return r <= 1 || c % 3 === 1;      // chains hang from a two-row canopy
+  if (formation === "heart") {
+    const row = HEART[Math.min(HEART.length - 1, r)];
+    return r === 0 || row[Math.min(row.length - 1, c)] === "1";
+  }
+  return true;                                                  // rows
 }
 
 /* ---- level generation ----------------------------------------------------
@@ -64,28 +116,39 @@ export function difficulty(levelNo) {
 export function genLevel(seed, levelNo) {
   const d = difficulty(levelNo);
   const rng = stream(seed, levelNo, "board");
+  const rowsTotal = d.formation === "rope" ? d.rowsInit + 2 : d.rowsInit;
   const rows = [];
-  for (let r = 0; r < d.rowsInit; r++) {
+  for (let r = 0; r < rowsTotal; r++) {
     const cols = colsIn(r);
     const row = new Array(cols).fill(null);
     for (let c = 0; c < cols; c++) {
-      if (d.formation === "blob") {
-        // elliptical mask around the board's top-center
-        const nx = (cellX(r, c) - WUNITS / 2) / (WUNITS / 2);
-        const ny = r / d.rowsInit;
-        if (nx * nx + ny * ny * 0.55 > 0.92 && r > 0) { if (rng() < 0.7) continue; }
-      }
+      const keep = keepCell(d.formation, r, c, rowsTotal);
+      const roll = rng();                        // ALWAYS consume — masks never shift the stream
+      if (!keep && roll < 0.85) continue;
       let color = Math.floor(rng() * d.palette);
       if (rng() < 0.45) {
-        const nbs = neighbors(r, c).map(([rr, cc]) => at(rows.concat([row]), rr, cc)).filter((v) => v != null);
+        const nbs = neighbors(r, c).map(([rr, cc]) => colorOf(at(rows.concat([row]), rr, cc))).filter((v) => v != null);
         if (nbs.length) color = +nbs[Math.floor(rng() * nbs.length)];
       }
       row[c] = String(color);
     }
     rows.push(row);
   }
-  // anchor: any row-0 hole is fine, but ensure at least 60% of row 0 is filled
+  // anchor: ensure at least the even columns of row 0 are filled
   for (let c = 0; c < colsIn(0); c++) if (rows[0][c] == null && (c % 2 === 0)) rows[0][c] = String(Math.floor(rng() * d.palette));
+  // sprinkle specials (never on row 0, never breaking the anchor)
+  const sp = d.specials;
+  for (let r = 1; r < rows.length; r++) for (let c = 0; c < colsIn(r); c++) {
+    const v = rows[r][c];
+    if (v == null) continue;
+    const roll = rng();
+    if (roll < sp.bomb) rows[r][c] = "B";
+    else if (roll < sp.bomb + sp.star) rows[r][c] = "*";
+    else if (roll < sp.bomb + sp.star + sp.stone) rows[r][c] = "S";
+    else if (roll < sp.bomb + sp.star + sp.stone + sp.caged) rows[r][c] = "C" + v;
+  }
+  // a board that starts with orphans would drop gems on frame one — reattach
+  findOrphans(rows).forEach(([r, c]) => { rows[r][c] = null; });
   return { no: levelNo, seed, ...d, rows };
 }
 
@@ -105,10 +168,11 @@ function bagAt(seed, levelNo, palette, idx) {
 }
 const colorsPresent = (rows) => {
   const s = new Set();
-  rows.forEach((row) => row.forEach((v) => { if (v != null && v >= "0" && v <= "9") s.add(v); }));
+  rows.forEach((row) => row.forEach((v) => { const c = colorOf(v); if (c != null) s.add(c); }));
   return s;
 };
-// draw the next PLAYABLE gem: absent colors advance deterministically
+// draw the next PLAYABLE gem: absent colors advance deterministically; from
+// level 10 an occasional 🌈 rainbow replaces the draw (pure hash — no stream)
 function draw(run) {
   const present = colorsPresent(run.rows);
   if (!present.size) return { code: "0", bagIdx: run.bagIdx };
@@ -116,7 +180,10 @@ function draw(run) {
   for (let guard = 0; guard < 40; guard++) {
     const code = bagAt(run.seed, run.levelNo, run.palette, idx);
     idx++;
-    if (present.has(code)) return { code, bagIdx: idx };
+    if (present.has(code)) {
+      if (run.levelNo >= 10 && hashStr(run.seed + ":w:" + run.levelNo + ":" + idx) % 19 === 0) return { code: "W", bagIdx: idx };
+      return { code, bagIdx: idx };
+    }
   }
   return { code: [...present][0], bagIdx: idx };
 }
@@ -126,6 +193,7 @@ export function newRun(seed, levelNo) {
   const level = genLevel(seed, levelNo);
   const run = {
     seed, levelNo, palette: level.palette, moveEvery: level.moveEvery,
+    shapeMode: level.shapeMode, formation: level.formation, stormy: level.stormy, gift: level.gift,
     rows: level.rows.map((r) => r.slice()),
     bagIdx: 0, cur: null, next: null, shotIdx: 0, misses: 0, drops: 0,
     combo: 0, score: 0, status: "playing",
@@ -194,7 +262,7 @@ export function snapCell(rows, x, y, hit) {
 
 /* ---- matching / orphans -------------------------------------------------- */
 export function matchGroup(rows, r0, c0) {
-  const start = at(rows, r0, c0);
+  const start = colorOf(at(rows, r0, c0));
   if (start == null) return [];
   const seen = new Set([r0 + ":" + c0]), out = [[r0, c0]], stack = [[r0, c0]];
   while (stack.length) {
@@ -202,7 +270,7 @@ export function matchGroup(rows, r0, c0) {
     for (const [rr, cc] of neighbors(r, c)) {
       const k = rr + ":" + cc;
       if (seen.has(k)) continue;
-      if (at(rows, rr, cc) === start) { seen.add(k); out.push([rr, cc]); stack.push([rr, cc]); }
+      if (colorOf(at(rows, rr, cc)) === start) { seen.add(k); out.push([rr, cc]); stack.push([rr, cc]); }
     }
   }
   return out;
@@ -243,18 +311,76 @@ export function applyShot(run, action) {
   if (!land) { next.shotIdx++; return finishShot(next, events, false); }
 
   while (next.rows.length <= land.r) next.rows.push(new Array(colsIn(next.rows.length)).fill(null));
-  next.rows[land.r][land.c] = next.cur;
-  events.push({ t: "place", r: land.r, c: land.c, code: next.cur });
+  // 🌈 rainbow lands as whichever adjacent color makes the biggest group
+  let placedCode = next.cur;
+  if (placedCode === "W") {
+    let best = null, bestN = -1;
+    const tried = new Set();
+    for (const [rr, cc] of neighbors(land.r, land.c)) {
+      const col = colorOf(at(next.rows, rr, cc));
+      if (col == null || tried.has(col)) continue;
+      tried.add(col);
+      next.rows[land.r][land.c] = col;
+      const n = matchGroup(next.rows, land.r, land.c).length;
+      next.rows[land.r][land.c] = null;
+      if (n > bestN || (n === bestN && +col < +best)) { bestN = n; best = col; }
+    }
+    placedCode = best != null ? best : "0";
+  }
+  next.rows[land.r][land.c] = placedCode;
+  events.push({ t: "place", r: land.r, c: land.c, code: placedCode });
 
   const group = matchGroup(next.rows, land.r, land.c);
   let popped = false;
   if (group.length >= 3) {
     popped = true;
-    group.forEach(([r, c]) => { next.rows[r][c] = null; });
     next.combo = Math.min(5, next.combo + 1);
-    const pts = group.length * 10 * next.combo;
+    // caged gems in the group are FREED, not popped; the rest pop
+    const freed = [], gone = [];
+    for (const [r, c] of group) {
+      const v = next.rows[r][c];
+      if (v && v[0] === "C") { next.rows[r][c] = v.slice(1); freed.push([r, c]); }
+      else { gone.push([r, c]); next.rows[r][c] = null; }
+    }
+    const pts = gone.length * 10 * next.combo;
     next.score += pts;
-    events.push({ t: "pop", cells: group, pts });
+    if (freed.length) events.push({ t: "uncage", cells: freed });
+    events.push({ t: "pop", cells: gone, pts });
+    // 💥 bombs and ⭐ stars adjacent to the popped cells trigger, chaining
+    const trigColor = colorOf(placedCode);
+    const boomQueue = [];
+    const scan = (cells) => cells.forEach(([r, c]) => neighbors(r, c).forEach(([rr, cc]) => {
+      const v = at(next.rows, rr, cc);
+      if (v === "B" || v === "*") boomQueue.push([rr, cc, v]);
+    }));
+    scan(gone);
+    const blasted = [];
+    while (boomQueue.length) {
+      const [br, bc, kind] = boomQueue.shift();
+      if (at(next.rows, br, bc) == null) continue;
+      next.rows[br][bc] = null;
+      blasted.push([br, bc]);
+      if (kind === "B") {
+        for (const [rr, cc] of neighbors(br, bc)) {
+          const v = at(next.rows, rr, cc);
+          if (v == null) continue;
+          if (v === "B" || v === "*") { boomQueue.push([rr, cc, v]); continue; }
+          next.rows[rr][cc] = null; blasted.push([rr, cc]);
+        }
+      } else if (trigColor != null) {
+        next.rows.forEach((row, rr) => row.forEach((v, cc) => {
+          if (colorOf(v) === trigColor) {
+            if (v && v[0] === "C") next.rows[rr][cc] = v.slice(1);
+            else { next.rows[rr][cc] = null; blasted.push([rr, cc]); }
+          }
+        }));
+      }
+    }
+    if (blasted.length) {
+      const bp = blasted.length * 15 * next.combo;
+      next.score += bp;
+      events.push({ t: "boom", cells: blasted, pts: bp });
+    }
     const orphans = findOrphans(next.rows);
     if (orphans.length) {
       orphans.forEach(([r, c]) => { next.rows[r][c] = null; });
@@ -266,7 +392,33 @@ export function applyShot(run, action) {
     next.combo = 0;
   }
   next.shotIdx++;
+  // ⛈ storm levels: the sky lobs a gem back every 4th shot
+  if (next.stormy && next.status === "playing" && next.shotIdx % 4 === 0) stormShot(next, events);
   return finishShot(next, events, popped);
+}
+
+// deterministic return fire: driven by shotIdx off the "junk" stream
+function stormShot(next, events) {
+  const rng = stream(next.seed, next.levelNo, "junk");
+  const k = Math.floor(next.shotIdx / 4);
+  let a = 0, b = 0;
+  for (let i = 0; i < k; i++) { a = rng(); b = rng(); }
+  const spots = [];
+  next.rows.forEach((row, r) => row.forEach((v, c) => {
+    if (v == null) return;
+    for (const [rr, cc] of neighbors(r, c)) {
+      if (rr < 0 || cc < 0 || cc >= colsIn(rr) || rr >= DEAD_ROW - 1) continue;
+      const occ = rr < next.rows.length ? next.rows[rr][cc] : null;
+      if (occ == null) spots.push([rr, cc]);
+    }
+  }));
+  if (!spots.length) return;
+  spots.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  const [r, c] = spots[Math.floor(a * spots.length)];
+  const code = String(Math.floor(b * next.palette));
+  while (next.rows.length <= r) next.rows.push(new Array(colsIn(next.rows.length)).fill(null));
+  next.rows[r][c] = code;
+  events.push({ t: "storm", r, c, code });
 }
 
 function finishShot(next, events, popped) {
