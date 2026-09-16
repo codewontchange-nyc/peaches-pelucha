@@ -13,42 +13,48 @@ const html = htm.bind(h);
    Storybook-sky theme: transparent canvas over a CSS sky, the player's own
    emoji as the shooter on the lawn. */
 
-/* gems are EMOJI on soft paper chips — the app's native design language.
-   Fruit for color levels (Peaches included, obviously); a celestial set for
-   shape-match levels; real emoji for every special. COLORS drives particles
-   and HUD accents, hue-matched to each fruit. */
-const GEMOJI    = ["🍓", "🍋", "🍏", "🫐", "🍇", "🍑", "🥥"];
+/* gems are pure EMOJI with a soft shadow — no chrome. Each level picks one of
+   several THEMES (deterministically from the seed, so both phones see the
+   same set) so you're never staring at the same seven emoji every game.
+   Hues drive the pop particles, matched per theme slot. */
+const THEMES = [
+  { name: "hearts",   emoji: ["❤️", "💛", "💚", "💙", "💜", "🧡", "🤎"],
+    hues: ["#e0245e", "#ffd166", "#39b54a", "#4a90e2", "#9b59b6", "#ff8c42", "#8d6e63"] },
+  { name: "fruits",   emoji: ["🍓", "🍋", "🍏", "🫐", "🍇", "🍑", "🥥"],
+    hues: ["#e8617a", "#ffd166", "#7fb069", "#5aa7d6", "#c4a6ff", "#ff9e7d", "#a9826b"] },
+  { name: "critters", emoji: ["🐞", "🐝", "🐸", "🦋", "🐙", "🦊", "🐻"],
+    hues: ["#e8434a", "#ffcf3f", "#5fb85f", "#58a7e0", "#9b6bd6", "#f28c3a", "#a9826b"] },
+  { name: "treats",   emoji: ["🍒", "🧀", "🥦", "🍙", "🍆", "🥕", "🍩"],
+    hues: ["#d94352", "#f4c542", "#6ab04c", "#cfd8dc", "#7d4fb0", "#f39c4f", "#b5651d"] },
+];
 const SHAPEMOJI = ["⭐", "🌙", "☁️", "🌸", "⚡", "🍄", "🎈"];
-const COLORS = ["#e8617a", "#ffd166", "#7fb069", "#5aa7d6", "#c4a6ff", "#ff9e7d", "#a9826b"];
+const SHAPE_HUES = ["#ffd166", "#c4a6ff", "#cfe7f5", "#ffb4c8", "#f4c542", "#e8434a", "#e8617a"];
+const themeFor = (seed, levelNo) => THEMES[G.hashStr(seed + ":theme:" + levelNo) % THEMES.length];
 const JOURNEY_SEED = "gq1";
 
-/* ---- sprites: emoji pre-rendered onto soft paper chips (hot loop = drawImage) */
-function makeSprites(px) {
+/* ---- sprites: bare emoji + soft drop shadow, pre-rendered (hot loop =
+   drawImage; the shadow costs once at sprite build, never per frame) */
+function makeSprites(px, themeEmoji) {
   const mk = (paint) => { const c = document.createElement("canvas"); c.width = c.height = px; paint(c.getContext("2d"), px / 2); return c; };
-  const chip = (emoji, opts = {}) => mk((g, r) => {
-    g.beginPath(); g.arc(r, r, r - 1, 0, Math.PI * 2);
-    g.fillStyle = opts.bg || "rgba(255,253,250,.94)"; g.fill();
-    g.lineWidth = Math.max(1.5, px * 0.045);
-    g.strokeStyle = opts.rim || "rgba(217,161,115,.85)"; g.stroke();
-    g.font = `${Math.round(r * 1.22)}px system-ui`;
+  const glyph = (emoji) => mk((g, r) => {
+    g.shadowColor = "rgba(43,37,33,.32)";
+    g.shadowBlur = px * 0.09;
+    g.shadowOffsetY = px * 0.055;
+    g.font = `${Math.round(px * 0.82)}px system-ui`;
     g.textAlign = "center"; g.textBaseline = "middle";
-    g.fillText(emoji, r, r * 1.07);
+    g.fillText(emoji, r, r * 1.08);
   });
-  const colors = GEMOJI.map((e, i) => chip(e, { rim: COLORS[i] }));
-  const shapes = SHAPEMOJI.map((e, i) => chip(e, { rim: COLORS[i] }));
-  const stone = chip("🪨", { bg: "rgba(206,200,192,.95)", rim: "#6f6a63" });
-  const bomb = chip("💣", { bg: "rgba(255,236,214,.95)", rim: "#2b2521" });
-  const star = chip("⭐", { bg: "rgba(255,240,205,.95)", rim: "#d9a827" });
-  const rainbow = chip("🌈", { rim: "#c4a6ff" });
-  const ice = chip("🧊", { bg: "rgba(230,244,252,.92)", rim: "#9cc8e0" });
-  const heart = chip("💗", { bg: "rgba(253,238,242,.95)", rim: "#e8617a" });
-  const crown = chip("👑", { bg: "rgba(255,240,205,.95)", rim: "#c9a227" });
+  const colors = themeEmoji.map(glyph);
+  const shapes = SHAPEMOJI.map(glyph);
   const cage = mk((g, r) => {
-    g.strokeStyle = "rgba(43,37,33,.65)"; g.lineWidth = Math.max(2, px * 0.055); g.lineCap = "round";
-    for (let i = -2; i <= 2; i++) { const x = r + i * r * 0.42; g.beginPath(); g.moveTo(x, r * 0.25); g.lineTo(x, px - r * 0.25); g.stroke(); }
-    g.beginPath(); g.arc(r, r, r - 2, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = "rgba(43,37,33,.6)"; g.lineWidth = Math.max(2, px * 0.05); g.lineCap = "round";
+    for (let i = -2; i <= 2; i++) { const x = r + i * r * 0.42; g.beginPath(); g.moveTo(x, r * 0.3); g.lineTo(x, px - r * 0.3); g.stroke(); }
   });
-  return { colors, shapes, stone, bomb, star, rainbow, cage, ice, heart, crown };
+  return {
+    colors, shapes, cage,
+    stone: glyph("🪨"), bomb: glyph("💣"), star: glyph("⭐"), rainbow: glyph("🌈"),
+    ice: glyph("🧊"), heart: glyph("💗"), crown: glyph("👑"),
+  };
 }
 
 /* ================= the playable surface (gamefs) ======================== */
@@ -64,7 +70,8 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
   const boot = useCallback((lvl) => {
     const run = G.newRun(JOURNEY_SEED, lvl);
     S.current = {
-      run, display: run.rows.map((r) => r.slice()), drops: run.drops,
+      run, theme: themeFor(JOURNEY_SEED, lvl),
+      display: run.rows.map((r) => r.slice()), drops: run.drops,
       queue: [], pending: null, anim: null, particles: [], falling: [],
       trail: [], popups: [], jiggles: [], shake: 0, recoil: 0,
       aim: null, raf: 0, last: 0, watchdog: 0, sprites: null, scale: 1, offX: 0, dpr: 1,
@@ -91,7 +98,7 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
     cv.width = Math.round(cw * dpr); cv.height = Math.round(chh * dpr);
     cv.style.width = cw + "px"; cv.style.height = chh + "px";
     st.scale = s; st.dpr = dpr; st.offX = (cw - G.WUNITS * s) / 2;
-    st.sprites = makeSprites(Math.max(24, Math.round(2 * G.R * s * dpr)));
+    st.sprites = makeSprites(Math.max(24, Math.round(2 * G.R * s * dpr)), st.theme.emoji);
     draw();
   }, []);
   useEffect(() => {
@@ -343,9 +350,10 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       for (const [r, c] of ev.cells) {
         const code = st.display[r] && st.display[r][c];
         if (st.display[r]) st.display[r][c] = null;
-        const ci = parseInt(G.colorOf(code) ?? "0", 10) % COLORS.length;
+        const huesNow = st.run.shapeMode ? SHAPE_HUES : st.theme.hues;
+        const ci = parseInt(G.colorOf(code) ?? "0", 10) % huesNow.length;
         for (let i = 0; i < 8 && st.particles.length < 160; i++) {
-          st.particles.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vx: (Math.random() - 0.5) * G.R / 22, vy: (Math.random() - 0.7) * G.R / 22, r: G.R * (0.12 + Math.random() * 0.16), life: 420, life0: 420, color: COLORS[ci] });
+          st.particles.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vx: (Math.random() - 0.5) * G.R / 22, vy: (Math.random() - 0.7) * G.R / 22, r: G.R * (0.12 + Math.random() * 0.16), life: 420, life0: 420, color: huesNow[ci] });
         }
       }
       try { navigator.vibrate && navigator.vibrate(12); } catch {}
@@ -520,7 +528,7 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
         next <span class="gememoji">${(() => {
           const n = (hud && hud.next) || "0";
           if (n === "W") return "🌈";
-          const set = S.current && S.current.run.shapeMode ? SHAPEMOJI : GEMOJI;
+          const set = S.current && S.current.run.shapeMode ? SHAPEMOJI : (S.current ? S.current.theme.emoji : THEMES[0].emoji);
           return set[parseInt(G.colorOf(n) ?? "0", 10) % set.length];
         })()}</span> ⇄
       </button>
