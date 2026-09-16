@@ -1609,8 +1609,10 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .castle-svg .doorlight { opacity: 0; transition: opacity .22s ease; pointer-events: none; }
 .castle-svg .door.open .doorlight { opacity: 1; }
 .castle-svg .doorlight.lit { opacity: .5; }         /* badge glow (e.g. unanswered daily) */
-.castle-svg .door-label { fill: rgba(253,246,227,.78); font-family: var(--sans); font-size: 9px;
-  font-weight: 700; letter-spacing: .14em; text-anchor: middle; pointer-events: none; }
+/* labels: ink text with a paper halo, readable on cream walls AND the dark lawn */
+.castle-svg .door-label { fill: #3a2f28; stroke: rgba(248,242,233,.9); stroke-width: 3;
+  paint-order: stroke; stroke-linejoin: round; font-family: var(--sans); font-size: 9.5px;
+  font-weight: 800; letter-spacing: .12em; text-anchor: middle; pointer-events: none; }
 .castle-svg .door-glyph { text-anchor: middle; pointer-events: none; }
 /* only the invisible hit rect receives taps (art layers stay inert) */
 .castle-svg .door * { pointer-events: none; }
