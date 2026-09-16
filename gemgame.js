@@ -62,7 +62,7 @@ const snd = {
     o.connect(g2).connect(ctx.destination);
     o.start(t0); o.stop(t0 + dur + 0.05);
   },
-  noise(dur = 0.12, vol = 0.1, when = 0) {
+  noise(dur = 0.12, vol = 0.1, when = 0, freq = 900, type = "lowpass") {
     const ctx = this.muted ? null : this.ensure(); if (!ctx) return;
     const t0 = ctx.currentTime + when;
     const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
@@ -71,9 +71,22 @@ const snd = {
     for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
     const src = ctx.createBufferSource(); src.buffer = buf;
     const g2 = ctx.createGain(); g2.gain.value = vol;
-    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 900;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq;
     src.connect(f).connect(g2).connect(ctx.destination);
     src.start(t0);
+  },
+  // 🎱 pool acoustics: bright ball-on-ball CLACK, dull cushion thud, and a
+  // descending rattle as balls drop into the pocket
+  clack(vol = 0.26, when = 0) {
+    this.noise(0.04, vol, when, 2600, "highpass");
+    this.tone(1700, 0.035, "triangle", vol * 0.5, when);
+    this.tone(190, 0.05, "sine", vol * 0.55, when);
+  },
+  cushion() { this.noise(0.07, 0.16, 0, 520); this.tone(130, 0.06, "sine", 0.12); },
+  pocket(n = 3) {
+    for (let i = 0; i < Math.min(4, n); i++) this.clack(0.2 - i * 0.035, i * 0.07);
+    this.tone(85, 0.3, "sine", 0.16, 0.05);
+    this.noise(0.28, 0.1, 0.1, 300);
   },
   pop(combo, size) { const base = Math.min(PENT.length - 1, (combo - 1) * 2); this.tone(PENT[base], 0.2, "triangle", 0.18); if (size >= 5) this.tone(PENT[Math.min(PENT.length - 1, base + 2)], 0.24, "triangle", 0.14, 0.06); },
   thunk() { this.tone(120, 0.09, "sine", 0.12); },
@@ -395,7 +408,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
             for (let i = 0; i < 6 && st.particles.length < 160; i++)
               st.particles.push({ x: path[seg].x, y: path[seg].y, vx: (Math.random() - 0.5) * G.R / 20, vy: (Math.random() - 0.5) * G.R / 20, r: G.R * 0.12, life: 240, life0: 240, color: "#fff" });
             st.shake = Math.max(st.shake, 2);
-            snd.bounce();
+            if (st.run.mode === "duel") snd.cushion(); else snd.bounce();
           }
         }
         a.fly.seg = seg; a.fly.t = t;
@@ -458,7 +471,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
       G.neighbors(ev.r, ev.c).forEach(([rr, cc]) => {
         if (rr >= 0 && st.display[rr] && st.display[rr][cc] != null) st.jiggles.push({ r: rr, c: cc, t: 0 });
       });
-      snd.thunk();
+      if (st.run.mode === "duel") snd.clack(); else snd.thunk();
       st.anim = { wait: 40 };
     }
     else if (ev.t === "pop") {
@@ -478,7 +491,8 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
       const cy = ev.cells.reduce((s2, [r]) => s2 + G.cellY(r), 0) / ev.cells.length + yOff;
       st.popups.push({ x: cx, y: cy, txt: "+" + ev.pts, t: 0 });
       if (ev.cells.length >= 5) st.shake = Math.max(st.shake, 3 + Math.min(5, ev.cells.length - 4));
-      snd.pop((st.pending && st.pending.combo) || 1, ev.cells.length);
+      if (st.run.mode === "duel") snd.pocket(ev.cells.length);
+      else snd.pop((st.pending && st.pending.combo) || 1, ev.cells.length);
       st.anim = { wait: 140 };
     }
     else if (ev.t === "fall") {
@@ -487,7 +501,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
         if (st.display[r]) st.display[r][c] = null;
         st.falling.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vy: G.R / 40, code: code || "0" });
       }
-      snd.fall();
+      if (st.run.mode === "duel") snd.pocket(ev.cells.length); else snd.fall();
       st.anim = { wait: 120 };
     }
     else if (ev.t === "descend") { st.drops = ev.drops; st.anim = { wait: 200 }; }
