@@ -668,13 +668,16 @@ export function boardHash(run) {
 }
 
 /* ============================== ⚔️ DUEL ==================================
-   Warm vs cool on ONE board, alternating shots. Player 0 is ALWAYS warm
-   (🔥 red/yellow/orange), player 1 cool (❄️ green/blue/purple) — the UI
-   decides which human is which. Offense: pop your own colors off the board.
-   Defense: your gems stick where they land, walling the other side in.
-   Win by emptying YOUR colors; flooding the board on your turn loses it. */
-export const WARM = ["0", "1", "5"];
-export const COOL = ["2", "3", "4"];
+   Pool-hall rules on ONE board, alternating shots. Player 0 is ALWAYS
+   ● SOLIDS (codes 0,1,5), player 1 ◐ STRIPES (codes 2,3,4) — the UI decides
+   which human is which. Offense: pop your own balls off the board. Defense:
+   your balls stick where they land, walling the other side in. One 🎱
+   EIGHT-BALL ("E") sits in the rack: whoever's shot knocks it out (popped
+   loose OR dropped as an orphan) eats a -300 penalty. Win by emptying YOUR
+   group; flooding the board on your turn loses it. */
+export const WARM = ["0", "1", "5"];   // ● solids
+export const COOL = ["2", "3", "4"];   // ◐ stripes
+export const EIGHT = "E";
 const groupOf = (p) => (p === 0 ? WARM : COOL);
 const countGroup = (rows, group) => {
   let n = 0;
@@ -711,6 +714,8 @@ export function newDuelRun(seed) {
     }
     rows.push(row);
   }
+  // 🎱 the eight-ball racks dead center — nobody wants to be the one to sink it
+  rows[2][4] = EIGHT;
   const run = {
     mode: "duel", seed, levelNo: 1, palette: 6, rows, turn: 0,
     bagIdx: [0, 0], curs: [null, null], nexts: [null, null],
@@ -752,11 +757,29 @@ function applyDuelShot(run, action) {
       const pts = group.length * 10;
       next.scores[p] += pts;
       events.push({ t: "pop", cells: group, pts });
+      // 🎱 a pop beside the eight-ball knocks it loose — shooter's fault
+      let eight = null;
+      for (const [r, c] of group) {
+        for (const [rr, cc] of neighbors(r, c)) {
+          if (at(next.rows, rr, cc) === EIGHT) { next.rows[rr][cc] = null; eight = [rr, cc]; }
+        }
+      }
       const orphans = findOrphans(next.rows);
       if (orphans.length) {
-        orphans.forEach(([r, c]) => { next.rows[r][c] = null; });
-        next.scores[p] += orphans.length * 20;
-        events.push({ t: "fall", cells: orphans, pts: orphans.length * 20 });
+        const kept = [];
+        for (const [r, c] of orphans) {
+          if (next.rows[r][c] === EIGHT) { eight = [r, c]; next.rows[r][c] = null; continue; }
+          kept.push([r, c]);
+          next.rows[r][c] = null;
+        }
+        if (kept.length) {
+          next.scores[p] += kept.length * 20;
+          events.push({ t: "fall", cells: kept, pts: kept.length * 20 });
+        }
+      }
+      if (eight) {
+        next.scores[p] -= 300;
+        events.push({ t: "eightball", by: p, r: eight[0], c: eight[1], pts: -300 });
       }
     }
   }

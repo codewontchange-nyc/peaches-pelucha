@@ -29,6 +29,17 @@ const THEMES = [
 ];
 const SHAPEMOJI = ["⭐", "🌙", "☁️", "🌸", "⚡", "🍄", "🎈"];
 const SHAPE_HUES = ["#ffd166", "#c4a6ff", "#cfe7f5", "#ffb4c8", "#f4c542", "#e8434a", "#e8617a"];
+/* duel = pool balls: player 0 shoots ● SOLIDS, player 1 ◐ STRIPES, and the
+   🎱 eight-ball ("E") is the shared hazard */
+const POOL = {
+  "0": { n: 1, hue: "#f4c542", stripe: false },
+  "1": { n: 3, hue: "#d94352", stripe: false },
+  "5": { n: 4, hue: "#7d4fb0", stripe: false },
+  "2": { n: 10, hue: "#4a90e2", stripe: true },
+  "3": { n: 13, hue: "#f28c3a", stripe: true },
+  "4": { n: 14, hue: "#39b54a", stripe: true },
+  "E": { n: 8, hue: "#26262b", stripe: false },
+};
 const themeFor = (seed, levelNo) => THEMES[G.hashStr(seed + ":theme:" + levelNo) % THEMES.length];
 const JOURNEY_SEED = "gq1";
 
@@ -96,8 +107,32 @@ function makeSprites(px, themeEmoji) {
     g.strokeStyle = "rgba(43,37,33,.6)"; g.lineWidth = Math.max(2, px * 0.05); g.lineCap = "round";
     for (let i = -2; i <= 2; i++) { const x = r + i * r * 0.42; g.beginPath(); g.moveTo(x, r * 0.3); g.lineTo(x, px - r * 0.3); g.stroke(); }
   });
+  // classic drawn pool balls for duel: colored base (or white with a colored
+  // stripe band), white number circle, rim, shine — the 🎱 is black
+  const poolBall = (spec) => mk((g, r) => {
+    g.shadowColor = "rgba(43,37,33,.3)"; g.shadowBlur = px * 0.07; g.shadowOffsetY = px * 0.045;
+    g.beginPath(); g.arc(r, r, r * 0.92, 0, Math.PI * 2);
+    g.fillStyle = spec.stripe ? "#fdfaf4" : spec.hue; g.fill();
+    g.shadowColor = "transparent";
+    if (spec.stripe) {
+      g.save(); g.beginPath(); g.arc(r, r, r * 0.92, 0, Math.PI * 2); g.clip();
+      g.fillStyle = spec.hue; g.fillRect(0, r * 0.52, px, r * 0.96);
+      g.restore();
+    }
+    g.lineWidth = Math.max(1.5, px * 0.035); g.strokeStyle = "rgba(38,32,28,.55)";
+    g.beginPath(); g.arc(r, r, r * 0.92, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(r, r, r * 0.4, 0, Math.PI * 2); g.fillStyle = "#fdfaf4"; g.fill();
+    g.fillStyle = "#26262b";
+    g.font = `800 ${Math.round(r * 0.5)}px Inter, system-ui`;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(String(spec.n), r, r * 1.03);
+    g.beginPath(); g.arc(r * 0.68, r * 0.6, r * 0.16, 0, Math.PI * 2);
+    g.fillStyle = "rgba(255,255,255,.8)"; g.fill();
+  });
+  const pool = {};
+  for (const code of Object.keys(POOL)) pool[code] = poolBall(POOL[code]);
   return {
-    colors, shapes, cage,
+    colors, shapes, cage, pool,
     stone: glyph("🪨"), bomb: glyph("💣"), star: glyph("⭐"), rainbow: glyph("🌈"),
     ice: glyph("🧊"), heart: glyph("💗"), crown: glyph("👑"),
   };
@@ -136,7 +171,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
     setBossUi(run.boss ? { hp: run.boss.hp, maxHp: run.boss.maxHp, exposed: false, hitN: 0 } : null);
     setPhase("play");
     const FORM = { rows: "", blob: "☁️ Cloudbank", ring: "⭕ The Ring", rope: "⛓ Hanging Chains", spiral: "🌀 The Spiral", heart: "💞 Heart of the Sky" };
-    const bits = duel ? ["🔥 warm vs ❄️ cool — clear YOUR colors first"]
+    const bits = duel ? ["● solids vs ◐ stripes — clear YOURS first, don't sink the 🎱"]
       : [run.boss ? "⛈ BOSS: wound the storm with pops!" : FORM[run.formation], run.shapeMode ? "🔷 Shape match" : "", run.stormy ? "⛈ The sky shoots back" : "", run.gift ? "🎁 Gift level" : "", ...run.mods].filter(Boolean);
     setIntro({ title: duel ? "Gem Duel ⚔️" : `Level ${lvl}`, sub: bits.join(" · ") || "clear the sky" });
     setTimeout(() => setIntro(null), 1900);
@@ -186,6 +221,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
     const sp = st.sprites;
     const shapeMode = st.run.shapeMode;
     const sprite = (code) => {
+      if (st.run.mode === "duel") return sp.pool[code] || sp.pool["0"];
       if (code === "S") return sp.stone;
       if (code === "B") return sp.bomb;
       if (code === "*") return sp.star;
@@ -429,10 +465,11 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
       for (const [r, c] of ev.cells) {
         const code = st.display[r] && st.display[r][c];
         if (st.display[r]) st.display[r][c] = null;
-        const huesNow = st.run.shapeMode ? SHAPE_HUES : st.theme.hues;
-        const ci = parseInt(G.colorOf(code) ?? "0", 10) % huesNow.length;
+        const hueNow = st.run.mode === "duel"
+          ? (POOL[G.colorOf(code) ?? "0"] || POOL["0"]).hue
+          : (st.run.shapeMode ? SHAPE_HUES : st.theme.hues)[parseInt(G.colorOf(code) ?? "0", 10) % 7];
         for (let i = 0; i < 8 && st.particles.length < 160; i++) {
-          st.particles.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vx: (Math.random() - 0.5) * G.R / 22, vy: (Math.random() - 0.7) * G.R / 22, r: G.R * (0.12 + Math.random() * 0.16), life: 420, life0: 420, color: huesNow[ci] });
+          st.particles.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vx: (Math.random() - 0.5) * G.R / 22, vy: (Math.random() - 0.7) * G.R / 22, r: G.R * (0.12 + Math.random() * 0.16), life: 420, life0: 420, color: hueNow });
         }
       }
       try { navigator.vibrate && navigator.vibrate(12); } catch {}
@@ -558,6 +595,19 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
       }
       st.anim = { wait: 1000 };
     }
+    else if (ev.t === "eightball") {
+      // ☠️ somebody sank the eight-ball
+      if (st.display[ev.r]) st.display[ev.r][ev.c] = null;
+      for (let i = 0; i < 22 && st.particles.length < 200; i++) {
+        const ang = (i / 22) * Math.PI * 2;
+        st.particles.push({ x: G.cellX(ev.r, ev.c), y: G.cellY(ev.r) + yOff, vx: Math.cos(ang) * G.R / 18, vy: Math.sin(ang) * G.R / 18, r: G.R * 0.16, life: 640, life0: 640, color: i % 3 ? "#26262b" : "#fdfaf4" });
+      }
+      st.popups.push({ x: G.cellX(ev.r, ev.c), y: G.cellY(ev.r) + yOff, txt: "🎱 -300!", t: 0, color: "#26262b" });
+      st.shake = Math.max(st.shake, 8);
+      snd.boom(); snd.dead();
+      try { navigator.vibrate && navigator.vibrate([30, 60, 30]); } catch {}
+      st.anim = { wait: 450 };
+    }
     else if (ev.t === "duelend") st.anim = { wait: 300 };
     else st.anim = { wait: 10 };                     // next / turn / dead — HUD updates at finish
   }, []);
@@ -667,19 +717,24 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
     </div>`}
     ${duel && html`<div class=${`gemfs-turnbar ${turn === 0 ? "warm" : "cool"}`}>
       <span class="gemfs-turn-who">${duelP.emoji} ${duelP.name}'s shot</span>
-      <span class="gemfs-turn-side">${turn === 0 ? "🔥 warm" : "❄️ cool"}</span>
-      <span class="gemfs-turn-counts tnum">🔥 ${hud ? hud.warmLeft : 0} · ❄️ ${hud ? hud.coolLeft : 0}</span>
+      <span class="gemfs-turn-side">${turn === 0 ? "● solids" : "◐ stripes"}</span>
+      <span class="gemfs-turn-counts tnum">● ${hud ? hud.warmLeft : 0} · ◐ ${hud ? hud.coolLeft : 0}</span>
     </div>`}
     <div class="gemfs-hud">
       <span class="gemfs-pips">${hud && hud.moveEvery < 99 ? Array.from({ length: hud.moveEvery }, (_, i) => html`<i key=${i} class=${i < pips ? "on" : ""}></i>`) : ""}</span>
       ${S.current && S.current.run.mods.length > 0 && html`<span class="gemfs-mods">${S.current.run.mods.map((m) => html`<em key=${m}>${m}</em>`)}</span>`}
       <button class="gemfs-next" onClick=${swap} title="Swap">
-        next <span class="gememoji">${(() => {
+        next ${(() => {
           const n = (hud && hud.next) || "0";
-          if (n === "W") return "🌈";
+          if (duel) {
+            const spec = POOL[n] || POOL["0"];
+            const bg = spec.stripe ? `linear-gradient(180deg,#fdfaf4 0 26%,${spec.hue} 26% 74%,#fdfaf4 74% 100%)` : spec.hue;
+            return html`<span class="gemdot" style=${`background:${bg}`}></span>`;
+          }
+          if (n === "W") return html`<span class="gememoji">🌈</span>`;
           const set = S.current && S.current.run.shapeMode ? SHAPEMOJI : (S.current ? S.current.theme.emoji : THEMES[0].emoji);
-          return set[parseInt(G.colorOf(n) ?? "0", 10) % set.length];
-        })()}</span> ⇄
+          return html`<span class="gememoji">${set[parseInt(G.colorOf(n) ?? "0", 10) % set.length]}</span>`;
+        })()} ⇄
       </button>
     </div>
     <div class="gemfs-stage" ref=${wrapRef}>
@@ -704,9 +759,9 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
       ${phase === "duelend" && duel && (() => {
         const w = S.current.run.winner === 0 ? duel.p0 : duel.p1;
         return html`<div class="gemfs-over">
-          <div class="gemfs-big">${w.emoji} ${w.name} takes the sky!</div>
-          <div class="gemfs-stars">${S.current.run.winner === 0 ? "🔥" : "❄️"}</div>
-          <div class="tnum" style="font-size:16px">🔥 ${S.current.run.scores[0]} · ❄️ ${S.current.run.scores[1]}</div>
+          <div class="gemfs-big">${w.emoji} ${w.name} runs the table!</div>
+          <div class="gemfs-stars">${S.current.run.winner === 0 ? "●" : "◐"} 🎱</div>
+          <div class="tnum" style="font-size:16px">● ${S.current.run.scores[0]} · ◐ ${S.current.run.scores[1]}</div>
           <button class="btn" onClick=${() => { boot((Math.random() * 4294967296) >>> 0); setTimeout(fit, 30); }}>Rematch ⚔️</button>
           <button class="linkbtn" onClick=${() => onExit(levelNo)}>Back to the castle</button>
         </div>`; })()}
@@ -792,11 +847,11 @@ export function GemQuestCard({ client, me, players, flash }) {
     ${duelSetup && html`<div class="modal-bg asheet" onClick=${(e) => { if (e.target.classList.contains("modal-bg")) setDuelSetup(false); }}>
       <div class="modal" onClick=${(e) => e.stopPropagation()}>
         <div class="handle"></div>
-        <div class="eyebrow" style="margin-bottom:6px">⚔️ gem duel — pass the phone</div>
-        <p class="sub" style="margin-bottom:12px">One sky, alternating shots. Clear <b>your</b> colors first — and wall theirs in. Who takes 🔥 warm (❤️💛🧡)? The other gets ❄️ cool (💚💙💜).</p>
+        <div class="eyebrow" style="margin-bottom:6px">🎱 gem duel — pass the phone</div>
+        <p class="sub" style="margin-bottom:12px">One rack, alternating shots. Clear <b>your</b> balls first — and wall theirs in. But mind the 🎱: whoever knocks the eight-ball loose eats <b>-300</b>. Who shoots ● solids? The other gets ◐ stripes.</p>
         <div class="row" style="gap:10px">
-          <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: me, p1: partner }); }}>🔥 ${me.emoji} ${me.name}</button>
-          <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: partner, p1: me }); }}>🔥 ${partner.emoji} ${partner.name}</button>
+          <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: me, p1: partner }); }}>● ${me.emoji} ${me.name}</button>
+          <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: partner, p1: me }); }}>● ${partner.emoji} ${partner.name}</button>
         </div>
       </div>
     </div>`}
