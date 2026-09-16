@@ -1766,3 +1766,24 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .gemmap-lawn { position: absolute; left: 0; right: 0; bottom: 0; height: 46px;
   background: #cdeac0; border-top: 3px solid #7fb069; }
 @media (prefers-reduced-motion: reduce) { .gemstop.now, .gemstop-partner { animation: none; } }
+
+/* 💎 juice: level intro card, combo banner, modifier chips */
+.gemfs-intro { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); z-index: 4;
+  text-align: center; pointer-events: none; animation: gemIntro 1.9s var(--ease-out) both; }
+.gemfs-intro-title { font-family: var(--serif); font-weight: 600; font-size: 34px; color: #2b2521; }
+.gemfs-intro-sub { margin-top: 6px; font-size: 13.5px; font-weight: 700; color: #8a5a44;
+  background: rgba(255,251,244,.85); border-radius: 999px; padding: 5px 14px; display: inline-block; }
+@keyframes gemIntro { 0% { opacity: 0; transform: translate(-50%,-50%) scale(1.25); }
+  12% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%,-58%) scale(.96); } }
+.gemfs-combo { position: absolute; left: 50%; top: 52%; transform: translateX(-50%); z-index: 4;
+  pointer-events: none; font-family: var(--serif); font-weight: 600; font-size: 26px; color: #cf4a63;
+  text-shadow: 0 2px 0 #fff, 0 4px 12px rgba(207,74,99,.3); animation: gemCombo 1s var(--spring) both; }
+@keyframes gemCombo { 0% { opacity: 0; transform: translateX(-50%) scale(.4) rotate(-6deg); }
+  25% { opacity: 1; transform: translateX(-50%) scale(1.15) rotate(2deg); }
+  55% { transform: translateX(-50%) scale(1); } 100% { opacity: 0; transform: translateX(-50%) translateY(-14px); } }
+.gemfs-mods { display: flex; gap: 5px; overflow: hidden; }
+.gemfs-mods em { font-style: normal; font-size: 10.5px; font-weight: 800; color: #4a3529;
+  background: rgba(255,251,244,.8); border: 1px solid rgba(217,161,115,.5); border-radius: 999px;
+  padding: 3px 8px; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .gemfs-intro, .gemfs-combo { animation-duration: .01s; } }

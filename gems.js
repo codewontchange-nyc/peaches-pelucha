@@ -56,8 +56,37 @@ export const colorOf = (code) => {
   if (code == null) return null;
   if (code >= "0" && code <= "9") return code;
   if (code[0] === "C") return code.slice(1);
-  return null;                                   // S, B, *, W
+  return null;                                   // S, B, *, W, I, H, K
 };
+
+/* ---- procedural level MODIFIERS (physics + rules), rolled per level from
+   their own RNG stream. Each is real: gravity and wind bend the flight in
+   the engine itself (and therefore in the aim preview too). */
+export const MODS = [
+  { key: "lob",      min: 8,  label: "🌙 Moon lob" },     // shots arc under gravity
+  { key: "walls",    min: 11, label: "🧱 Narrow sky" },   // inset walls, more bounces
+  { key: "wind",     min: 13, label: "🌬 Crosswind" },    // lateral drift on shots
+  { key: "pressure", min: 16, label: "⏬ Pressure" },     // ceiling descends faster
+  { key: "fog",      min: 21, label: "🌫 Low clouds" },   // the aim line fades out early
+];
+function rollMods(seed, levelNo, gift) {
+  const out = { list: [], phys: { grav: 0, wind: 0, inset: 0 }, fog: false, pressure: false };
+  if (gift || levelNo < 8) return out;
+  const rng = stream(seed, levelNo, "mods");
+  const r0 = rng();
+  const count = r0 < 0.42 ? 1 : r0 < 0.62 ? 2 : 0;
+  const pool = MODS.filter((m) => levelNo >= m.min);
+  for (let i = 0; i < count && pool.length; i++) {
+    const m = pool.splice(Math.floor(rng() * pool.length), 1)[0];
+    if (m.key === "lob") out.phys.grav = 5 + Math.floor(rng() * 4);              // units/step²
+    else if (m.key === "wind") out.phys.wind = (rng() < 0.5 ? -1 : 1) * (2 + Math.floor(rng() * 3));
+    else if (m.key === "walls") out.phys.inset = 1300 + Math.floor(rng() * 800);
+    else if (m.key === "fog") out.fog = true;
+    else if (m.key === "pressure") out.pressure = true;
+    out.list.push(m);
+  }
+  return out;
+}
 
 /* ---- difficulty curve ---------------------------------------------------- */
 export function difficulty(levelNo) {
@@ -81,6 +110,9 @@ export function difficulty(levelNo) {
     caged: gift ? 0 : levelNo >= 13 ? 0.06 : 0,
     bomb:  gift ? 0 : levelNo >= 11 ? 0.035 : 0,
     star:  gift ? 0 : levelNo >= 15 ? 0.02 : 0,
+    ice:   gift ? 0 : levelNo >= 24 ? 0.05 : 0,   // 🧊 shatters on any adjacent pop
+    heart: gift ? 0 : levelNo >= 26 ? 0.015 : 0,  // 💗 +500 when freed
+    crown: gift ? 0 : levelNo >= 30 ? 0.02 : 0,   // 👑 clears its whole row
   };
   return { palette, rowsInit, formation, moveEvery, gift, shapeMode, stormy, specials };
 }
@@ -116,7 +148,10 @@ function keepCell(formation, r, c, rowsTotal) {
 export function genLevel(seed, levelNo) {
   const d = difficulty(levelNo);
   const rng = stream(seed, levelNo, "board");
-  const rowsTotal = d.formation === "rope" ? d.rowsInit + 2 : d.rowsInit;
+  const rowsTotal = d.formation === "rope" ? Math.min(7, d.rowsInit + 2) : d.rowsInit;
+  // clustering rises with level (denser color runs keep deep boards fair);
+  // rope chains cluster hard so every chain carries poppable runs
+  const cluster = d.formation === "rope" ? 0.7 : Math.min(0.65, 0.45 + levelNo * 0.004);
   const rows = [];
   for (let r = 0; r < rowsTotal; r++) {
     const cols = colsIn(r);
@@ -126,7 +161,7 @@ export function genLevel(seed, levelNo) {
       const roll = rng();                        // ALWAYS consume — masks never shift the stream
       if (!keep && roll < 0.85) continue;
       let color = Math.floor(rng() * d.palette);
-      if (rng() < 0.45) {
+      if (rng() < cluster) {
         const nbs = neighbors(r, c).map(([rr, cc]) => colorOf(at(rows.concat([row]), rr, cc))).filter((v) => v != null);
         if (nbs.length) color = +nbs[Math.floor(rng() * nbs.length)];
       }
@@ -142,14 +177,19 @@ export function genLevel(seed, levelNo) {
     const v = rows[r][c];
     if (v == null) continue;
     const roll = rng();
-    if (roll < sp.bomb) rows[r][c] = "B";
-    else if (roll < sp.bomb + sp.star) rows[r][c] = "*";
-    else if (roll < sp.bomb + sp.star + sp.stone) rows[r][c] = "S";
-    else if (roll < sp.bomb + sp.star + sp.stone + sp.caged) rows[r][c] = "C" + v;
+    let acc = sp.bomb;
+    if (roll < acc) rows[r][c] = "B";
+    else if (roll < (acc += sp.star)) rows[r][c] = "*";
+    else if (roll < (acc += sp.stone)) rows[r][c] = "S";
+    else if (roll < (acc += sp.caged)) rows[r][c] = "C" + v;
+    else if (roll < (acc += sp.ice)) rows[r][c] = "I";
+    else if (roll < (acc += sp.heart)) rows[r][c] = "H";
+    else if (roll < (acc += sp.crown)) rows[r][c] = "K";
   }
   // a board that starts with orphans would drop gems on frame one — reattach
   findOrphans(rows).forEach(([r, c]) => { rows[r][c] = null; });
-  return { no: levelNo, seed, ...d, rows };
+  const mods = rollMods(seed, levelNo, d.gift);
+  return { no: levelNo, seed, ...d, rows, mods };
 }
 
 /* ---- the gem bag (deterministic draw sequence) --------------------------- */
@@ -192,8 +232,10 @@ function draw(run) {
 export function newRun(seed, levelNo) {
   const level = genLevel(seed, levelNo);
   const run = {
-    seed, levelNo, palette: level.palette, moveEvery: level.moveEvery,
+    seed, levelNo, palette: level.palette,
+    moveEvery: Math.max(2, level.moveEvery - (level.mods.pressure ? 2 : 0)),
     shapeMode: level.shapeMode, formation: level.formation, stormy: level.stormy, gift: level.gift,
+    mods: level.mods.list.map((m) => m.label), phys: level.mods.phys, fog: level.mods.fog,
     rows: level.rows.map((r) => r.slice()),
     bagIdx: 0, cur: null, next: null, shotIdx: 0, misses: 0, drops: 0,
     combo: 0, score: 0, status: "playing",
@@ -207,32 +249,45 @@ export function newRun(seed, levelNo) {
    Used by BOTH the aim preview and the resolve: the dotted line IS the flight.
    Returns { path: [{x,y}...] (bounce points + end), landing: {r,c} | null }. */
 const q16 = (v) => Math.round(v * 65536) / 65536;
-export function simulateFlight(rows, drops, angleMil) {
+/* Velocity-integrated flight: gravity (lob levels) and wind (crosswind levels)
+   bend the path; walls may be inset. Determinism holds because sin/cos are
+   quantized ONCE and everything after is pure IEEE +/× on those values.
+   The path records every wall bounce (renderer sparks) and dense samples so
+   curved arcs draw smoothly. */
+export function simulateFlight(rows, drops, angleMil, phys) {
+  const p = phys || { grav: 0, wind: 0, inset: 0 };
   const a = Math.max(-1360, Math.min(1360, angleMil | 0)) / 1000;
-  let dx = q16(Math.sin(a)), dy = q16(-Math.cos(a));
+  const step = R / 2;
+  let vx = q16(Math.sin(a)) * step, vy = q16(-Math.cos(a)) * step;
   let x = WUNITS / 2, y = LAUNCH_Y;
   const yOff = drops * ROWH;                       // ceiling descent offset
+  const wallL = R + (p.inset || 0), wallR = WUNITS - R - (p.inset || 0);
   const occ = [];
   rows.forEach((row, r) => row.forEach((v, c) => { if (v != null) occ.push([cellX(r, c), cellY(r) + yOff, r, c]); }));
   const path = [{ x, y }];
-  const step = R / 2;
+  const bounces = [];
   const hitDist2 = (2 * R - 120) * (2 * R - 120);
-  for (let i = 0; i < 600; i++) {
-    x += dx * step; y += dy * step;
-    if (x < R) { x = 2 * R - x; dx = -dx; path.push({ x: R, y }); }
-    else if (x > WUNITS - R) { x = 2 * (WUNITS - R) - x; dx = -dx; path.push({ x: WUNITS - R, y }); }
+  const curved = (p.grav || 0) !== 0 || (p.wind || 0) !== 0;
+  for (let i = 0; i < 900; i++) {
+    vy += (p.grav || 0); vx += (p.wind || 0);
+    x += vx; y += vy;
+    if (x < wallL) { x = 2 * wallL - x; vx = -vx; path.push({ x: wallL, y }); bounces.push(path.length - 1); }
+    else if (x > wallR) { x = 2 * wallR - x; vx = -vx; path.push({ x: wallR, y }); bounces.push(path.length - 1); }
+    else if (curved && i % 4 === 0) path.push({ x, y });   // dense samples so arcs draw smoothly
+    // a lobbed shot that arcs back down past the launcher is simply lost
+    if (vy > 0 && y > LAUNCH_Y + R) { path.push({ x, y }); return { path, bounces, landing: null }; }
     // ceiling
-    if (y <= yOff + R) { y = yOff + R; path.push({ x, y }); return { path, landing: snapCell(rows, x, y - yOff, null) }; }
+    if (y <= yOff + R) { y = yOff + R; path.push({ x, y }); return { path, bounces, landing: snapCell(rows, x, y - yOff, null) }; }
     for (const [ox, oy, r, c] of occ) {
       const ddx = x - ox, ddy = y - oy;
       if (ddx * ddx + ddy * ddy < hitDist2) {
         path.push({ x, y });
-        return { path, landing: snapCell(rows, x, y - yOff, [r, c]) };
+        return { path, bounces, landing: snapCell(rows, x, y - yOff, [r, c]) };
       }
     }
   }
   path.push({ x, y });
-  return { path, landing: null };
+  return { path, bounces, landing: null };
 }
 
 // nearest empty valid cell to (x, y in board space); prefer neighbors of the
@@ -305,8 +360,8 @@ export function applyShot(run, action) {
   }
   if (action.t !== "shot") return { run, events: [] };
 
-  const flight = simulateFlight(next.rows, next.drops, action.a);
-  events.push({ t: "fly", path: flight.path, code: next.cur });
+  const flight = simulateFlight(next.rows, next.drops, action.a, next.phys);
+  events.push({ t: "fly", path: flight.path, bounces: flight.bounces, code: next.cur });
   const land = flight.landing;
   if (!land) { next.shotIdx++; return finishShot(next, events, false); }
 
@@ -346,15 +401,20 @@ export function applyShot(run, action) {
     next.score += pts;
     if (freed.length) events.push({ t: "uncage", cells: freed });
     events.push({ t: "pop", cells: gone, pts });
-    // 💥 bombs and ⭐ stars adjacent to the popped cells trigger, chaining
+    // trigger gems adjacent to the popped cells chain: 💥 bomb blasts its ring,
+    // ⭐ star clears the trigger color, 🧊 ice shatters, 💗 heart pays big,
+    // 👑 crown wipes its whole row
     const trigColor = colorOf(placedCode);
+    const TRIGGERS = "B*IHK";
     const boomQueue = [];
     const scan = (cells) => cells.forEach(([r, c]) => neighbors(r, c).forEach(([rr, cc]) => {
       const v = at(next.rows, rr, cc);
-      if (v === "B" || v === "*") boomQueue.push([rr, cc, v]);
+      if (v != null && TRIGGERS.includes(v)) boomQueue.push([rr, cc, v]);
     }));
     scan(gone);
     const blasted = [];
+    let heartPts = 0;
+    const hearts = [];
     while (boomQueue.length) {
       const [br, bc, kind] = boomQueue.shift();
       if (at(next.rows, br, bc) == null) continue;
@@ -364,22 +424,35 @@ export function applyShot(run, action) {
         for (const [rr, cc] of neighbors(br, bc)) {
           const v = at(next.rows, rr, cc);
           if (v == null) continue;
-          if (v === "B" || v === "*") { boomQueue.push([rr, cc, v]); continue; }
+          if (TRIGGERS.includes(v)) { boomQueue.push([rr, cc, v]); continue; }
           next.rows[rr][cc] = null; blasted.push([rr, cc]);
         }
-      } else if (trigColor != null) {
+      } else if (kind === "*" && trigColor != null) {
         next.rows.forEach((row, rr) => row.forEach((v, cc) => {
           if (colorOf(v) === trigColor) {
             if (v && v[0] === "C") next.rows[rr][cc] = v.slice(1);
             else { next.rows[rr][cc] = null; blasted.push([rr, cc]); }
           }
         }));
+      } else if (kind === "H") { heartPts += 500; hearts.push([br, bc]); }
+      else if (kind === "K") {
+        for (let cc = 0; cc < colsIn(br); cc++) {
+          const v = next.rows[br][cc];
+          if (v == null) continue;
+          if (TRIGGERS.includes(v)) { boomQueue.push([br, cc, v]); continue; }
+          next.rows[br][cc] = null; blasted.push([br, cc]);
+        }
       }
+      // "I" ice: shattering itself is the whole effect
     }
     if (blasted.length) {
       const bp = blasted.length * 15 * next.combo;
       next.score += bp;
       events.push({ t: "boom", cells: blasted, pts: bp });
+    }
+    if (hearts.length) {
+      next.score += heartPts;
+      events.push({ t: "heartpop", cells: hearts, pts: heartPts });
     }
     const orphans = findOrphans(next.rows);
     if (orphans.length) {
