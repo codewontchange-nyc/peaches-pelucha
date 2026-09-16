@@ -337,6 +337,54 @@ function CastleSVG({ opening, badges, onDoor }) {
          two towers joined by a battlemented wall -->
     <path d="M50 652 V128 H140 V152 H156 V128 H186 V152 H204 V128 H234 V152 H250 V128 H340 V652 Z"
       fill="#fff4e6" stroke="#d9a173" stroke-width="2" filter="url(#c-wc)" />
+    <!-- 🧱 illustrated masonry: outlined bricks in a few watercolor rock
+         shades, scattered along the wall edges and bands (doors/windows
+         draw over this layer, so it never crowds the grid) -->
+    <g filter="url(#c-wc)">
+      <g stroke="#a98d6f" stroke-width="1.3" opacity=".85">
+        <!-- top band, under the battlements -->
+        <rect x="58" y="158" width="20" height="8" rx="2" fill="#dccbb6" fill-opacity=".7" />
+        <rect x="116" y="161" width="16" height="7" rx="2" fill="#cbb69d" fill-opacity=".65" />
+        <rect x="254" y="159" width="18" height="8" rx="2" fill="#b7a089" fill-opacity=".55" />
+        <rect x="312" y="162" width="16" height="7" rx="2" fill="#dccbb6" fill-opacity=".7" />
+        <!-- left wall edge -->
+        <rect x="55" y="214" width="18" height="8" rx="2" fill="#cbb69d" fill-opacity=".65" />
+        <rect x="60" y="226" width="14" height="7" rx="2" fill="#dccbb6" fill-opacity=".6" />
+        <rect x="55" y="300" width="22" height="8" rx="2" fill="#b7a089" fill-opacity=".55" />
+        <rect x="55" y="376" width="16" height="7" rx="2" fill="#dccbb6" fill-opacity=".7" />
+        <rect x="60" y="388" width="14" height="7" rx="2" fill="#9f8a73" fill-opacity=".45" />
+        <rect x="55" y="462" width="20" height="8" rx="2" fill="#cbb69d" fill-opacity=".65" />
+        <rect x="55" y="548" width="16" height="7" rx="2" fill="#b7a089" fill-opacity=".55" />
+        <!-- right wall edge -->
+        <rect x="316" y="220" width="18" height="8" rx="2" fill="#b7a089" fill-opacity=".55" />
+        <rect x="312" y="308" width="22" height="8" rx="2" fill="#dccbb6" fill-opacity=".7" />
+        <rect x="318" y="320" width="14" height="7" rx="2" fill="#cbb69d" fill-opacity=".6" />
+        <rect x="316" y="384" width="16" height="7" rx="2" fill="#9f8a73" fill-opacity=".45" />
+        <rect x="312" y="468" width="20" height="8" rx="2" fill="#cbb69d" fill-opacity=".65" />
+        <rect x="318" y="480" width="14" height="7" rx="2" fill="#dccbb6" fill-opacity=".6" />
+        <rect x="316" y="554" width="18" height="8" rx="2" fill="#b7a089" fill-opacity=".55" />
+        <!-- center strip, between the door columns -->
+        <rect x="178" y="240" width="18" height="8" rx="2" fill="#dccbb6" fill-opacity=".6" />
+        <rect x="188" y="304" width="16" height="7" rx="2" fill="#cbb69d" fill-opacity=".6" />
+        <rect x="176" y="316" width="14" height="7" rx="2" fill="#b7a089" fill-opacity=".5" />
+        <rect x="182" y="432" width="18" height="8" rx="2" fill="#dccbb6" fill-opacity=".65" />
+        <rect x="192" y="444" width="14" height="7" rx="2" fill="#9f8a73" fill-opacity=".4" />
+        <rect x="180" y="572" width="16" height="7" rx="2" fill="#cbb69d" fill-opacity=".6" />
+        <!-- base, flanking the foyer -->
+        <rect x="62" y="618" width="22" height="8" rx="2" fill="#b7a089" fill-opacity=".55" />
+        <rect x="76" y="630" width="16" height="7" rx="2" fill="#dccbb6" fill-opacity=".65" />
+        <rect x="300" y="620" width="20" height="8" rx="2" fill="#cbb69d" fill-opacity=".65" />
+        <rect x="314" y="632" width="15" height="7" rx="2" fill="#b7a089" fill-opacity=".55" />
+      </g>
+      <!-- broken mortar-course lines, hand-drawn short strokes -->
+      <g stroke="#c2ab90" stroke-width="1.2" opacity=".6" stroke-linecap="round">
+        <path d="M56 174 h16 M118 172 h12 M256 173 h14 M310 175 h13" />
+        <path d="M56 246 h14 M318 244 h12" />
+        <path d="M56 332 h12 M180 334 h14 M316 336 h12" />
+        <path d="M56 500 h14 M316 504 h12 M186 460 h12" />
+        <path d="M58 604 h16 M312 606 h14" />
+      </g>
+    </g>
     <!-- tower roofs + flags -->
     <g filter="url(#c-wc)">
       <path d="M40 132 L95 58 L150 132 Z" fill="#ff9e7d" stroke="#e07a5f" stroke-width="2" />
