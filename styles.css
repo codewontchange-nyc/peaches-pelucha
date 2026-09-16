@@ -1787,3 +1787,4 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   background: rgba(255,251,244,.8); border: 1px solid rgba(217,161,115,.5); border-radius: 999px;
   padding: 3px 8px; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .gemfs-intro, .gemfs-combo { animation-duration: .01s; } }
+.gememoji { font-size: 16px; line-height: 1; }

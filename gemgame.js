@@ -13,53 +13,36 @@ const html = htm.bind(h);
    Storybook-sky theme: transparent canvas over a CSS sky, the player's own
    emoji as the shooter on the lawn. */
 
-const COLORS = ["#e8617a", "#ffd166", "#7fb069", "#5aa7d6", "#c4a6ff", "#ff9e7d", "#1f8c8a"];
-const RIMS   = ["#c64360", "#d9a827", "#5d8a4e", "#3d83b0", "#9a79e8", "#e07a5f", "#15706e"];
+/* gems are EMOJI on soft paper chips — the app's native design language.
+   Fruit for color levels (Peaches included, obviously); a celestial set for
+   shape-match levels; real emoji for every special. COLORS drives particles
+   and HUD accents, hue-matched to each fruit. */
+const GEMOJI    = ["🍓", "🍋", "🍏", "🫐", "🍇", "🍑", "🥥"];
+const SHAPEMOJI = ["⭐", "🌙", "☁️", "🌸", "⚡", "🍄", "🎈"];
+const COLORS = ["#e8617a", "#ffd166", "#7fb069", "#5aa7d6", "#c4a6ff", "#ff9e7d", "#a9826b"];
 const JOURNEY_SEED = "gq1";
 
-/* ---- sprites: everything pre-rendered once per size (hot loop = drawImage) */
-const SHAPES = ["circle", "diamond", "heart", "star", "drop", "square", "tri"];
-function shapePath(g, kind, cx, cy, s) {
-  g.beginPath();
-  if (kind === "diamond") { g.moveTo(cx, cy - s); g.lineTo(cx + s, cy); g.lineTo(cx, cy + s); g.lineTo(cx - s, cy); }
-  else if (kind === "heart") { g.moveTo(cx, cy + s * 0.8); g.bezierCurveTo(cx - s * 1.4, cy - s * 0.4, cx - s * 0.5, cy - s * 1.2, cx, cy - s * 0.3); g.bezierCurveTo(cx + s * 0.5, cy - s * 1.2, cx + s * 1.4, cy - s * 0.4, cx, cy + s * 0.8); }
-  else if (kind === "star") { for (let i = 0; i < 10; i++) { const rr = i % 2 ? s * 0.45 : s; const a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(cx + rr * Math.cos(a), cy + rr * Math.sin(a)); } }
-  else if (kind === "drop") { g.moveTo(cx, cy - s); g.bezierCurveTo(cx + s, cy, cx + s * 0.7, cy + s, cx, cy + s); g.bezierCurveTo(cx - s * 0.7, cy + s, cx - s, cy, cx, cy - s); }
-  else if (kind === "square") g.rect(cx - s * 0.75, cy - s * 0.75, s * 1.5, s * 1.5);
-  else if (kind === "tri") { g.moveTo(cx, cy - s); g.lineTo(cx + s * 0.95, cy + s * 0.75); g.lineTo(cx - s * 0.95, cy + s * 0.75); }
-  else g.arc(cx, cy, s * 0.7, 0, Math.PI * 2);
-  g.closePath();
-}
+/* ---- sprites: emoji pre-rendered onto soft paper chips (hot loop = drawImage) */
 function makeSprites(px) {
   const mk = (paint) => { const c = document.createElement("canvas"); c.width = c.height = px; paint(c.getContext("2d"), px / 2); return c; };
-  const ball = (g, r, fill, rim) => {
+  const chip = (emoji, opts = {}) => mk((g, r) => {
     g.beginPath(); g.arc(r, r, r - 1, 0, Math.PI * 2);
-    g.fillStyle = fill; g.fill();
-    g.lineWidth = Math.max(2, px * 0.07); g.strokeStyle = rim; g.stroke();
-    g.beginPath(); g.arc(r - r * 0.32, r - r * 0.36, r * 0.22, 0, Math.PI * 2);
-    g.fillStyle = "rgba(255,255,255,.75)"; g.fill();
-  };
-  const colors = COLORS.map((fill, i) => mk((g, r) => ball(g, r, fill, RIMS[i])));
-  const shapes = COLORS.map((fill, i) => mk((g, r) => {
-    ball(g, r, fill, RIMS[i]);
-    shapePath(g, SHAPES[i], r, r, r * 0.5);
-    g.fillStyle = "rgba(255,255,255,.85)"; g.fill();
-    g.lineWidth = Math.max(1.5, px * 0.03); g.strokeStyle = RIMS[i]; g.stroke();
-  }));
-  const stone = mk((g, r) => { ball(g, r, "#a9a29a", "#6f6a63"); g.fillStyle = "rgba(0,0,0,.14)"; g.beginPath(); g.arc(r * 1.2, r * 1.25, r * 0.3, 0, Math.PI * 2); g.fill(); });
-  const ice = mk((g, r) => { g.globalAlpha = 0.85; ball(g, r, "#dff0fa", "#9cc8e0"); g.globalAlpha = 1; g.strokeStyle = "rgba(156,200,224,.9)"; g.lineWidth = Math.max(1.5, px * 0.03); g.beginPath(); g.moveTo(r * 0.6, r * 0.7); g.lineTo(r * 1.4, r * 1.3); g.moveTo(r * 1.3, r * 0.6); g.lineTo(r * 0.8, r * 1.4); g.stroke(); });
-  const heart = mk((g, r) => { ball(g, r, "#fdeaee", "#e8617a"); shapePath(g, "heart", r, r * 1.02, r * 0.52); g.fillStyle = "#e8617a"; g.fill(); });
-  const crown = mk((g, r) => { ball(g, r, "#ffe9b8", "#c9a227"); g.font = `${r * 0.95}px system-ui`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("👑", r, r * 1.03); });
-  const bomb = mk((g, r) => { ball(g, r, "#4a423a", "#2b2521"); g.font = `${r}px system-ui`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("💥", r, r * 1.05); });
-  const star = mk((g, r) => { ball(g, r, "#ffd166", "#d9a827"); shapePath(g, "star", r, r, r * 0.55); g.fillStyle = "#fff8e1"; g.fill(); g.strokeStyle = "#d9a827"; g.lineWidth = Math.max(1.5, px * 0.03); g.stroke(); });
-  const rainbow = mk((g, r) => {
-    const grad = g.createConicGradient ? g.createConicGradient(0, r, r) : null;
-    if (grad) { COLORS.forEach((c2, i) => grad.addColorStop(i / COLORS.length, c2)); grad.addColorStop(1, COLORS[0]); g.fillStyle = grad; }
-    else g.fillStyle = "#c4a6ff";
-    g.beginPath(); g.arc(r, r, r - 1, 0, Math.PI * 2); g.fill();
-    g.lineWidth = Math.max(2, px * 0.07); g.strokeStyle = "#fff"; g.stroke();
-    g.beginPath(); g.arc(r - r * 0.32, r - r * 0.36, r * 0.22, 0, Math.PI * 2); g.fillStyle = "rgba(255,255,255,.8)"; g.fill();
+    g.fillStyle = opts.bg || "rgba(255,253,250,.94)"; g.fill();
+    g.lineWidth = Math.max(1.5, px * 0.045);
+    g.strokeStyle = opts.rim || "rgba(217,161,115,.85)"; g.stroke();
+    g.font = `${Math.round(r * 1.22)}px system-ui`;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(emoji, r, r * 1.07);
   });
+  const colors = GEMOJI.map((e, i) => chip(e, { rim: COLORS[i] }));
+  const shapes = SHAPEMOJI.map((e, i) => chip(e, { rim: COLORS[i] }));
+  const stone = chip("🪨", { bg: "rgba(206,200,192,.95)", rim: "#6f6a63" });
+  const bomb = chip("💣", { bg: "rgba(255,236,214,.95)", rim: "#2b2521" });
+  const star = chip("⭐", { bg: "rgba(255,240,205,.95)", rim: "#d9a827" });
+  const rainbow = chip("🌈", { rim: "#c4a6ff" });
+  const ice = chip("🧊", { bg: "rgba(230,244,252,.92)", rim: "#9cc8e0" });
+  const heart = chip("💗", { bg: "rgba(253,238,242,.95)", rim: "#e8617a" });
+  const crown = chip("👑", { bg: "rgba(255,240,205,.95)", rim: "#c9a227" });
   const cage = mk((g, r) => {
     g.strokeStyle = "rgba(43,37,33,.65)"; g.lineWidth = Math.max(2, px * 0.055); g.lineCap = "round";
     for (let i = -2; i <= 2; i++) { const x = r + i * r * 0.42; g.beginPath(); g.moveTo(x, r * 0.25); g.lineTo(x, px - r * 0.25); g.stroke(); }
@@ -85,7 +68,7 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       queue: [], pending: null, anim: null, particles: [], falling: [],
       trail: [], popups: [], jiggles: [], shake: 0, recoil: 0,
       aim: null, raf: 0, last: 0, watchdog: 0, sprites: null, scale: 1, offX: 0, dpr: 1,
-      shotsUsed: 0, par: run.rows.flat().filter((v) => v != null).length / 2 + 5,
+      shotsUsed: 0, par: Math.round(run.rows.flat().filter((v) => v != null).length * 0.6) + 8,
     };
     setHud({ score: 0, misses: 0, moveEvery: run.moveEvery, cur: run.cur, next: run.next });
     setCombo(0);
@@ -159,7 +142,9 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       g.fillStyle = "rgba(138,90,68,.5)";
       g.fillRect(0, yOff - 60, G.WUNITS, 60);
     }
-    // board (caged gems wear the bars overlay; freshly-hit neighbors jiggle)
+    // board (caged gems wear the bars overlay; freshly-hit neighbors jiggle;
+    // a crawling swarm slides in from its pre-drift position)
+    const driftDX = st.driftFx ? -st.driftFx.dir * 2 * G.R * (1 - st.driftFx.t / st.driftFx.dur) : 0;
     st.display.forEach((row, r) => row.forEach((v, c) => {
       if (v == null) return;
       let jx = 0, jy = 0;
@@ -167,7 +152,7 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
         const k = 1 - j.t / 260;
         jx = Math.sin(j.t / 22) * G.R * 0.14 * k; jy = Math.cos(j.t / 30) * G.R * 0.1 * k;
       }
-      const x = G.cellX(r, c) - G.R + jx, y = G.cellY(r) + yOff - G.R + jy;
+      const x = G.cellX(r, c) - G.R + jx + driftDX, y = G.cellY(r) + yOff - G.R + jy;
       g.drawImage(sprite(v), x, y, px, px);
       if (v[0] === "C") g.drawImage(sp.cage, x, y, px, px);
     }));
@@ -233,9 +218,12 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       g.fillText(pu.txt, pu.x, pu.y - k * 2.4 * G.R);
     }
     g.globalAlpha = 1;
-    // launcher: the player, holding the current gem (recoil kick on fire)
+    // launcher: the player, holding the current gem (recoil kick on fire).
+    // The moment a shot leaves, the bear ALREADY holds the next gem (pending
+    // run) — what's in hand never changes after the fact.
+    const held = (st.pending || st.run).cur;
     const lx = G.WUNITS / 2, ly = G.LAUNCH_Y + (st.recoil > 0 ? st.recoil * G.R * 0.5 : 0);
-    if (st.run.cur != null && !st.anim) g.drawImage(sprite(st.run.cur), lx - G.R, ly - G.R, px, px);
+    if (held != null) g.drawImage(sprite(held), lx - G.R, ly - G.R, px, px);
     g.font = `${2.6 * G.R}px system-ui`;
     g.textAlign = "center";
     g.fillText((me && me.emoji) || "💗", lx, ly + 2.6 * G.R);
@@ -321,6 +309,7 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
     st.falling = st.falling.filter((f) => (f.bounces || 0) < 2 || f.y < G.LAUNCH_Y + G.R + 1);
     for (const j of st.jiggles) j.t += dt;
     st.jiggles = st.jiggles.filter((j) => j.t < 260);
+    if (st.driftFx) { st.driftFx.t += dt; if (st.driftFx.t >= st.driftFx.dur) st.driftFx = null; else busy = true; }
     for (const pu of st.popups) pu.t += dt;
     st.popups = st.popups.filter((pu) => pu.t < 800);
     if (st.shake > 0) st.shake = Math.max(0, st.shake - dt / 40);
@@ -411,6 +400,25 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
     else if (ev.t === "storm") {
       st.anim = { storm: { r: ev.r, c: ev.c, code: ev.code, x: G.cellX(ev.r, ev.c), y0: -2 * G.R, y1: G.cellY(ev.r) + yOff, y: -2 * G.R, t: 0, dur: 300 } };
     }
+    else if (ev.t === "grow") {
+      for (const [r, c, code] of ev.cells) {
+        while (st.display.length <= r) st.display.push(new Array(G.colsIn(st.display.length)).fill(null));
+        st.display[r][c] = code;
+        st.jiggles.push({ r, c, t: 0 });
+        for (let i = 0; i < 5 && st.particles.length < 160; i++)
+          st.particles.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vx: (Math.random() - 0.5) * G.R / 30, vy: (Math.random() - 0.5) * G.R / 30, r: G.R * 0.1, life: 260, life0: 260, color: "#fff" });
+      }
+      st.anim = { wait: 130 };
+    }
+    else if (ev.t === "drift") {
+      st.display = st.display.map((row, r) => {
+        const out = row.slice();
+        if (ev.dir < 0) { out.shift(); out.push(null); } else { out.pop(); out.unshift(null); }
+        return out;
+      });
+      st.driftFx = { dir: ev.dir, t: 0, dur: 240 };
+      st.anim = { wait: 250 };
+    }
     else st.anim = { wait: 10 };                     // next / clear / dead — HUD updates at finish
   }, []);
 
@@ -422,6 +430,9 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
     st.shotsUsed++;
     st.recoil = 1;
     st.trail = [];
+    // hand + next-chip update IMMEDIATELY (score/pips settle when the play
+    // animation lands) — nothing in the bear's hand ever changes late
+    setHud((h0) => ({ ...h0, cur: run.cur, next: run.next }));
     st.queue = events.slice();
     nextEvent();
     ensureRaf();
@@ -506,9 +517,12 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       <span class="gemfs-pips">${Array.from({ length: hud ? hud.moveEvery : 0 }, (_, i) => html`<i key=${i} class=${i < pips ? "on" : ""}></i>`)}</span>
       ${S.current && S.current.run.mods.length > 0 && html`<span class="gemfs-mods">${S.current.run.mods.map((m) => html`<em key=${m}>${m}</em>`)}</span>`}
       <button class="gemfs-next" onClick=${swap} title="Swap">
-        next <span class="gemdot" style=${`background:${hud && hud.next === "W"
-          ? "conic-gradient(#e8617a,#ffd166,#7fb069,#5aa7d6,#c4a6ff,#e8617a)"
-          : COLORS[parseInt(G.colorOf((hud && hud.next) || "0") ?? "0", 10) % COLORS.length]}`}></span> ⇄
+        next <span class="gememoji">${(() => {
+          const n = (hud && hud.next) || "0";
+          if (n === "W") return "🌈";
+          const set = S.current && S.current.run.shapeMode ? SHAPEMOJI : GEMOJI;
+          return set[parseInt(G.colorOf(n) ?? "0", 10) % set.length];
+        })()}</span> ⇄
       </button>
     </div>
     <div class="gemfs-stage" ref=${wrapRef}>

@@ -465,9 +465,57 @@ export function applyShot(run, action) {
     next.combo = 0;
   }
   next.shotIdx++;
-  // ⛈ storm levels: the sky lobs a gem back every 4th shot
+  // 🐝 the LIVING SWARM: after every shot the formation fights back —
+  // it grows new gems at its edges and crawls sideways in seeded-random
+  // directions. All driven by shotIdx off the "swarm" stream: deterministic,
+  // replayable, and the aim preview always sees the post-move board.
+  if (next.status === "playing") swarmMove(next, events);
+  // ⛈ storm levels: the sky ALSO lobs a gem back every 4th shot
   if (next.stormy && next.status === "playing" && next.shotIdx % 4 === 0) stormShot(next, events);
   return finishShot(next, events, popped);
+}
+
+function swarmMove(next, events) {
+  const rng = stream(next.seed, next.levelNo, "swarm");
+  // advance the stream to this shot's slot (5 draws per shot, fixed budget)
+  for (let i = 0; i < (next.shotIdx - 1) * 5; i++) rng();
+  const draws = [rng(), rng(), rng(), rng(), rng()];
+  // -- growth: +1 gem per shot (every 2nd shot below level 6; +2 from 22) --
+  const growN = next.levelNo < 6 ? (next.shotIdx % 2 === 0 ? 1 : 0) : next.levelNo >= 22 ? 2 : 1;
+  const grown = [];
+  for (let gI = 0; gI < growN; gI++) {
+    const spots = [];
+    next.rows.forEach((row, r) => row.forEach((v, c) => {
+      if (v == null) return;
+      for (const [rr, cc] of neighbors(r, c)) {
+        if (rr < 0 || cc < 0 || cc >= colsIn(rr) || rr >= DEAD_ROW - 1) continue;
+        const occ = rr < next.rows.length ? next.rows[rr][cc] : null;
+        if (occ == null && !spots.some(([sr, sc]) => sr === rr && sc === cc)) spots.push([rr, cc]);
+      }
+    }));
+    if (!spots.length) break;
+    spots.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    const [r, c] = spots[Math.floor(draws[gI] * spots.length)];
+    const code = String(Math.floor(draws[2 + gI] * next.palette));
+    while (next.rows.length <= r) next.rows.push(new Array(colsIn(next.rows.length)).fill(null));
+    next.rows[r][c] = code;
+    grown.push([r, c, code]);
+  }
+  if (grown.length) events.push({ t: "grow", cells: grown });
+  // -- crawl: the whole formation slides one column left or right when room --
+  const roll = draws[4];
+  let dir = roll < 0.38 ? -1 : roll < 0.76 ? 1 : 0;
+  const canShift = (d) => next.rows.every((row, r) => (d < 0 ? row[0] == null : row[colsIn(r) - 1] == null));
+  if (dir !== 0 && !canShift(dir)) dir = canShift(-dir) ? -dir : 0;
+  if (dir !== 0) {
+    next.rows = next.rows.map((row) => {
+      const out = row.slice();
+      if (dir < 0) { out.shift(); out.push(null); }
+      else { out.pop(); out.unshift(null); }
+      return out;
+    });
+    events.push({ t: "drift", dir });
+  }
 }
 
 // deterministic return fire: driven by shotIdx off the "junk" stream
