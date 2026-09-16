@@ -1,7 +1,7 @@
 import { h } from "https://esm.sh/preact@10.23.2";
 import { useState, useRef, useEffect, useCallback, useMemo } from "https://esm.sh/preact@10.23.2/hooks";
 import htm from "https://esm.sh/htm@3.1.1";
-import { Lakeside } from "./lake.js";
+import { SkyRealm } from "./sky.js";
 
 const html = htm.bind(h);
 
@@ -113,30 +113,30 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
     return () => { document.removeEventListener("visibilitychange", onVis); clearAll(); };
   }, [onEnter]);
 
-  // 🌍 the world: swipe LEFT-ward (scroll left) from the castle to find the
-  // lakeside. Native scroll-snap does the panning; the castle is the home
-  // panel, so we land on it instantly before first paint.
-  const worldRef = useRef(null);
-  const [panel, setPanel] = useState(1);
+  // ☁️ the world above: the sky sits ABOVE the castle in normal page flow —
+  // swipe up and the hand-drawn clouds rise with the screen. On mount we
+  // land on the castle instantly (no animation); gentle proximity snap makes
+  // settling on either zone feel seamless.
+  const castleZone = useRef(null);
+  const skyZone = useRef(null);
   useEffect(() => {
-    const el = worldRef.current; if (!el) return;
-    el.scrollLeft = el.clientWidth;                  // start at the castle
-    let raf = 0;
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => { raf = 0; setPanel(el.scrollLeft < el.clientWidth / 2 ? 0 : 1); });
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => { el.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
+    const cz = castleZone.current;
+    if (cz) cz.scrollIntoView({ behavior: "instant", block: "start" });
+    document.documentElement.classList.add("sky-snap");
+    return () => document.documentElement.classList.remove("sky-snap");
   }, []);
 
-  return html`<div class="world-holder">
-    <div class="world" ref=${worldRef}>
-    <section class="world-panel"><${Lakeside} client=${client} players=${players} /></section>
-    <section class="world-panel">
+  return html`<div class="worldv">
+    <section class="skyzone" ref=${skyZone}><${SkyRealm} client=${client} players=${players} /></section>
+    <section class="castlezone" ref=${castleZone}>
       <div ref=${wrapRef} class=${`castle-wrap ${zoom ? "zoom" : ""}`}
         style=${zoom ? `transform-origin:${zoom.ox}px ${zoom.oy}px` : ""}>
         <div class="castle-bg"></div>
+        <button class="sky-hint" aria-label="Look up at the sky"
+          onClick=${() => { const s = skyZone.current; s && s.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+          <svg viewBox="0 0 120 74" fill="none"><path d=${CLOUD_PATH} fill="#fff" stroke="#111" stroke-width="4" stroke-linejoin="round" vector-effect="non-scaling-stroke" /></svg>
+          <i>⌃</i>
+        </button>
         <${CastleSVG} opening=${opening} badges=${badges} onDoor=${onDoor} />
         <${SkyLife} />
         ${client && players.length >= 2 && html`<${Shouts} client=${client} players=${players} />`}
@@ -146,11 +146,6 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
         </div>
       </div>
     </section>
-    </div>
-    <div class="world-dots" aria-hidden="true">
-      <i class=${panel === 0 ? "on" : ""}>🏞</i>
-      <i class=${panel === 1 ? "on" : ""}>🏰</i>
-    </div>
   </div>`;
 }
 

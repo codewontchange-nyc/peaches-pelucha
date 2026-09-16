@@ -1559,52 +1559,77 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 /* the paper page continues past the SVG on tall/wide screens */
 .castle-bg { position: fixed; inset: 0; z-index: -1;
   background: linear-gradient(180deg, #faf5ef 0%, #fdf3ea 58%, #e9f2e0 84%, #cdeac0 100%); }
-/* 🌍 the swipeable world around the castle */
-.world { position: relative; display: flex; overflow-x: auto; overflow-y: hidden;
-  scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
-.world::-webkit-scrollbar { display: none; }
-.world-panel { flex: 0 0 100%; min-width: 0; scroll-snap-align: start; scroll-snap-stop: always; }
-.world-holder { position: relative; }
-.world-dots { position: absolute; left: 0; right: 0; bottom: 6px;
-  display: flex; justify-content: center; gap: 10px;
-  pointer-events: none; z-index: 5; }
-.world-dots i { font-style: normal; font-size: 12px; opacity: .35; filter: grayscale(1);
-  transition: opacity .25s ease, filter .25s ease, transform .25s ease; }
-.world-dots i.on { opacity: .95; filter: none; transform: scale(1.25); }
+/* ☁️ the world above the castle — swipe up into the sky.
+   The sky sits ABOVE the castle in normal page flow, so the ascent is
+   plain native scrolling (buttery, momentum, no nested scrollers);
+   proximity snap settles you softly on either zone. */
+html.sky-snap { scroll-snap-type: y proximity; }
+.skyzone, .castlezone { scroll-snap-align: start;
+  scroll-margin-top: calc(var(--safe-top) + 58px); }
+.castlezone { position: relative; }
 
-/* 🏞 the lakeside panel */
-.lakeside { position: relative; }
-.lake-svg { display: block; width: 100%; height: auto; }
-.lake-versebox { position: absolute; top: 12%; left: 10%; right: 10%; text-align: center;
-  pointer-events: none; }
-.lake-verse { font-family: Fraunces, Georgia, serif; font-style: italic; font-size: 16.5px;
-  line-height: 1.5; color: #5a6f83; margin: 0;
-  text-shadow: 0 1px 0 rgba(255,255,255,.9), 0 0 14px rgba(255,255,255,.8); }
-.lake-verse.long { font-size: 13.5px; }
-.lake-verse-ref { margin-top: 5px; font-size: 11px; letter-spacing: .12em;
-  text-transform: uppercase; color: #8a9bb0;
-  text-shadow: 0 1px 0 rgba(255,255,255,.9); }
-.lake-cards { position: absolute; left: 12px; right: 12px; bottom: 24px;
-  display: flex; flex-direction: column; gap: 8px; }
-.lake-card { background: rgba(255,253,251,.88); border: 1.5px solid #d9a173; border-radius: 14px;
-  padding: 9px 12px 10px; box-shadow: 0 4px 14px -6px rgba(138,90,68,.3);
-  backdrop-filter: blur(3px); font-size: 12.5px; color: #4a3529; }
-.lake-card .eyebrow { margin-bottom: 4px; }
-.lake-day { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
-.lake-day b { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #b96f4e; }
-.lake-plan { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
-.lake-plan-t { font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lake-dim { color: #8a7a6d; font-size: 11.5px; }
-.lake-row2 { display: flex; gap: 14px; }
-.lake-wx { flex: 1; min-width: 0; }
-.lake-wx-now { font-size: 15px; }
-.lake-train { flex: 1.15; min-width: 0; border-left: 1px solid #eadfd2; padding-left: 12px; }
+/* look-up affordance: a bobbing cloud with a chevron, top center of home */
+.sky-hint { position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+  z-index: 6; width: 54px; height: 36px; border: 0; background: none; padding: 0;
+  cursor: pointer; animation: skyhintbob 3.2s ease-in-out infinite; }
+.sky-hint svg { width: 100%; height: 100%; filter: drop-shadow(0 2px 3px rgba(43,37,33,.18)); }
+.sky-hint i { position: absolute; inset: 0; display: grid; place-items: center;
+  font-style: normal; font-weight: 800; font-size: 15px; color: #2b2521; padding-bottom: 6px; }
+@keyframes skyhintbob { 50% { transform: translateX(-50%) translateY(-5px); } }
+
+/* the sky itself: deep blue at the summit fading to the castle's paper sky,
+   so the bottom edge melts into the castle scene with no seam */
+.skyrealm { position: relative; overflow: hidden; min-height: 620px;
+  background: linear-gradient(180deg, #9ec8e8 0%, #b7d8ee 34%, #cfe7f5 62%, #ecf3f2 84%, #faf5ef 100%); }
+.sky-air { position: absolute; inset: 0; pointer-events: none; }
+.sky-sun { position: absolute; top: 12px; right: 9%; width: 92px; height: 92px; }
+.sun-rays { transform-origin: 60px 60px; animation: sunrays 24s linear infinite; }
+@keyframes sunrays { to { transform: rotate(360deg); } }
+.skyc { position: absolute; top: var(--y); left: 0; width: calc(84px * var(--s, 1));
+  opacity: var(--o, 1);
+  animation: skydrift var(--d, 70s) linear infinite; animation-delay: var(--neg, 0s); }
+.skyc.soft { filter: blur(.4px); }
+@keyframes skydrift {
+  from { transform: translateX(-30vw); }
+  to   { transform: translateX(110vw); }
+}
+.sky-bird { position: absolute; top: var(--y); left: 0; width: 30px;
+  animation: skydrift var(--d, 40s) linear infinite; animation-delay: var(--neg, 0s); }
+@media (prefers-reduced-motion: reduce) {
+  .skyc, .sky-bird, .sun-rays, .sky-hint { animation: none; }
+  .skyc { transform: translateX(30vw); } .sky-bird { transform: translateX(60vw); }
+}
+
+/* content: BIG and legible, floating on cloud plates */
+.sky-content { position: relative; z-index: 2; max-width: 480px; margin: 0 auto;
+  padding: 108px 20px 26px; display: flex; flex-direction: column; gap: 14px; }
+.sky-verseblock { text-align: center; padding: 26px 20px 22px; margin: 4px 6px 6px;
+  background: rgba(255,255,255,.92); border-radius: 34px;
+  box-shadow: 0 10px 30px -12px rgba(60,90,120,.35), 0 0 0 6px rgba(255,255,255,.35); }
+.sky-verse { font-family: var(--serif, Fraunces, Georgia, serif); font-style: italic;
+  font-size: 22px; line-height: 1.55; color: #2b2521; margin: 0; }
+.sky-verse.long { font-size: 19px; }
+.sky-verse.xlong { font-size: 16.5px; }
+.sky-verse-ref { margin-top: 10px; font-size: 12px; letter-spacing: .14em;
+  text-transform: uppercase; color: #b96f4e; font-weight: 700; }
+.sky-plate { background: rgba(255,255,255,.92); border-radius: 22px; padding: 16px 18px;
+  box-shadow: 0 8px 24px -12px rgba(60,90,120,.35); color: #2b2521; }
+.sky-eyebrow { font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: #b96f4e; font-weight: 700; margin-bottom: 6px; }
+.sky-story { font-size: 17px; line-height: 1.6; margin: 6px 0 0; }
+.sky-story-day { color: #b96f4e; }
+.sky-soft { color: #8a7a6d; font-size: 14px; margin: 4px 0 0; }
+.sky-wx { display: flex; align-items: center; gap: 8px; font-size: 24px; }
+.sky-wx-emoji { font-size: 28px; }
+.sky-wx .sky-soft { font-size: 16px; margin: 0; }
 .bullet3 { display: inline-flex; align-items: center; justify-content: center;
-  width: 15px; height: 15px; border-radius: 50%; background: #ee352e; color: #fff;
-  font-size: 10.5px; font-weight: 800; margin-right: 2px; vertical-align: -2px; }
-.lake-train-times { display: flex; gap: 10px; font-size: 15px; margin: 2px 0; }
-.lake-good { color: #4c8a43; font-weight: 650; margin-top: 3px; font-size: 12px; }
-.lake-delay { color: #b00020; font-size: 11px; line-height: 1.35; margin-top: 3px; }
+  width: 17px; height: 17px; border-radius: 50%; background: #ee352e; color: #fff;
+  font-size: 11.5px; font-weight: 800; margin-right: 3px; vertical-align: -3px; }
+.sky-train { display: flex; gap: 16px; font-size: 22px; margin-top: 4px; flex-wrap: wrap; }
+.sky-good { color: #4c8a43; font-weight: 700; font-size: 15px; margin: 8px 0 0; }
+.sky-delay { color: #b00020; font-size: 14px; line-height: 1.45; margin: 8px 0 0; }
+.sky-descent { text-align: center; font-size: 13px; color: #8a9bb0; padding: 8px 0 2px;
+  letter-spacing: .04em; }
 
 .castle-wrap { position: relative; }
 .castle-svg { display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; }
