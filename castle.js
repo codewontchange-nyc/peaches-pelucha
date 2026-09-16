@@ -133,8 +133,11 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
     // returning from a room within the same session just lands on the castle.
     el.scrollTop = max();
     el.style.setProperty("--fly", "0");
+    // class fallback for the opaque hub topbar (belt to the :has() suspenders)
+    const shell = document.querySelector(".app-shell");
+    shell && shell.classList.add("hubworld");
     let flyRaf = 0, flyTimer = 0;
-    const cancelFlight = () => { cancelAnimationFrame(flyRaf); clearTimeout(flyTimer); };
+    const cancelFlight = () => { cancelAnimationFrame(flyRaf); clearTimeout(flyTimer); el.style.scrollSnapType = ""; };
     if (!seenSkyThisLoad) {
       seenSkyThisLoad = true;
       const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -147,11 +150,16 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
           if (document.querySelector(".dailyfull") && Date.now() - t00 < 60000) { flyTimer = setTimeout(tryLater, 350); return; }
           flyTimer = setTimeout(() => {
             const from = el.scrollTop, dur = 1300, t0 = performance.now();
+            // mandatory snap re-snaps EVERY per-frame scrollTop write back to
+            // the castle (verified: the whole flight collapses to a jump) —
+            // lift snap for the autopilot, restore it on landing
+            el.style.scrollSnapType = "none";
             const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
             const step = (now) => {
               const t = Math.min(1, (now - t0) / dur);
               el.scrollTop = from * (1 - ease(t));
               if (t < 1) flyRaf = requestAnimationFrame(step);
+              else el.style.scrollSnapType = "";
             };
             flyRaf = requestAnimationFrame(step);
           }, 650);
@@ -176,7 +184,7 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", size);
-    return () => { el.removeEventListener("scroll", onScroll); window.removeEventListener("resize", size); cancelAnimationFrame(raf); cancelFlight(); };
+    return () => { el.removeEventListener("scroll", onScroll); window.removeEventListener("resize", size); cancelAnimationFrame(raf); cancelFlight(); shell && shell.classList.remove("hubworld"); };
   }, []);
 
   return html`<div class="worldv" ref=${worldRef}>
