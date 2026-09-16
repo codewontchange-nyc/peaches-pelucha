@@ -127,15 +127,40 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
   useEffect(() => {
     const el = worldRef.current; if (!el) return;
     const max = () => el.scrollHeight - el.clientHeight;
-    // the app OPENS in the sky (the day's verse greets you); returning to
-    // the hub from a room within the same session lands on the castle
+    // opening flight: on app load we start AT the castle, let it breathe for
+    // a beat, then fly up into the sky (the full swoop, on autopilot) — the
+    // verse greets you at the summit. Any touch cancels the autopilot, and
+    // returning from a room within the same session just lands on the castle.
+    el.scrollTop = max();
+    el.style.setProperty("--fly", "0");
+    let flyRaf = 0, flyTimer = 0;
+    const cancelFlight = () => { cancelAnimationFrame(flyRaf); clearTimeout(flyTimer); };
     if (!seenSkyThisLoad) {
       seenSkyThisLoad = true;
-      el.scrollTop = 0;
-      el.style.setProperty("--fly", "1");
-    } else {
-      el.scrollTop = max();
-      el.style.setProperty("--fly", "0");
+      const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduced) { el.scrollTop = 0; el.style.setProperty("--fly", "1"); }
+      else {
+        // hold on the ground while the daily-question overlay is up — the
+        // flight is the greeting, and it shouldn't play behind a sheet
+        const t00 = Date.now();
+        const tryLater = () => {
+          if (document.querySelector(".dailyfull") && Date.now() - t00 < 60000) { flyTimer = setTimeout(tryLater, 350); return; }
+          flyTimer = setTimeout(() => {
+            const from = el.scrollTop, dur = 1300, t0 = performance.now();
+            const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+            const step = (now) => {
+              const t = Math.min(1, (now - t0) / dur);
+              el.scrollTop = from * (1 - ease(t));
+              if (t < 1) flyRaf = requestAnimationFrame(step);
+            };
+            flyRaf = requestAnimationFrame(step);
+          }, 650);
+        };
+        flyTimer = setTimeout(tryLater, 250);
+        el.addEventListener("pointerdown", cancelFlight, { once: true, passive: true });
+        el.addEventListener("wheel", cancelFlight, { once: true, passive: true });
+        el.addEventListener("touchstart", cancelFlight, { once: true, passive: true });
+      }
     }
     const size = () => el.style.setProperty("--skyH", Math.round(el.clientHeight * 0.86) + "px");
     size();
@@ -151,7 +176,7 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", size);
-    return () => { el.removeEventListener("scroll", onScroll); window.removeEventListener("resize", size); cancelAnimationFrame(raf); };
+    return () => { el.removeEventListener("scroll", onScroll); window.removeEventListener("resize", size); cancelAnimationFrame(raf); cancelFlight(); };
   }, []);
 
   return html`<div class="worldv" ref=${worldRef}>
