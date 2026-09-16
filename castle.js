@@ -11,19 +11,20 @@ const html = htm.bind(h);
    and badge anchors; app.js reads it for room titles too.
    viewBox is 0 0 390 720 (drawn under the ~64px sticky topbar). */
 
-/* Door bases sit ON their floor lines (292 / 456 / 592 / foyer 648) — windows
-   (observatory porthole, sunroom) and the hanging painting are the exceptions,
-   since windows and paintings live mid-wall. Door proportions follow the
-   birthday-book house: slim arches ~1:1.8, thin warm-tan strokes, gold knobs. */
+/* A STRICT 2×4 grid: two columns (centers x=133 and x=257), four floors whose
+   lines sit at y = 268 / 396 / 524 / 652 (ground). Every door base rests ON its
+   floor line; windows share the columns; the gallery painting hangs just above
+   its line. Uniform sizes: doors 52×78, windows 44×58. Labels are nameplates
+   just under each floor line. */
 export const ROOMS = {
-  gameroom: { label: "Game Room",   emoji: "🎴", door: { x: 52,  y: 486, w: 64,  h: 106 } },
-  chapel:   { label: "Sunroom",     emoji: "☀️", door: { x: 295, y: 168, w: 48,  h: 88 } },
-  plans:    { label: "Ballroom",    emoji: "💃", door: { x: 228, y: 328, w: 96,  h: 128 } },
-  map:      { label: "Observatory", emoji: "🔭", door: { x: 43,  y: 175, w: 56,  h: 56 } },
-  memories: { label: "Gallery",     emoji: "🖼️", door: { x: 58,  y: 318, w: 108, h: 108 } },
-  schmoney: { label: "Vault",       emoji: "💗", door: { x: 214, y: 508, w: 80,  h: 80 } },
-  joinme:   { label: "Garden",      emoji: "🌿", door: { x: 330, y: 502, w: 42,  h: 90 } },
-  more:     { label: "Workshop",    emoji: "🔧", door: { x: 170, y: 608, w: 50,  h: 36 } },
+  map:      { label: "Observatory", emoji: "🔭", door: { x: 111, y: 210, w: 44, h: 58 } },   // floor 1 L
+  chapel:   { label: "Sunroom",     emoji: "☀️", door: { x: 235, y: 210, w: 44, h: 58 } },   // floor 1 R
+  memories: { label: "Gallery",     emoji: "🖼️", door: { x: 102, y: 330, w: 62, h: 62 } },   // floor 2 L
+  plans:    { label: "Ballroom",    emoji: "💃", door: { x: 231, y: 318, w: 52, h: 78 } },   // floor 2 R
+  gameroom: { label: "Game Room",   emoji: "🎴", door: { x: 107, y: 446, w: 52, h: 78 } },   // floor 3 L
+  schmoney: { label: "Vault",       emoji: "💗", door: { x: 229, y: 468, w: 56, h: 56 } },   // floor 3 R
+  joinme:   { label: "Garden",      emoji: "🌿", door: { x: 107, y: 574, w: 52, h: 78 } },   // ground L
+  more:     { label: "Workshop",    emoji: "🔧", door: { x: 231, y: 616, w: 52, h: 36 } },   // ground R
 };
 
 // door center in viewBox units — the avatar walk target (phase 2) + zoom origin
@@ -81,7 +82,7 @@ export function CastleHub({ me, balances, badges = {}, onEnter }) {
     if (reduced) { openThenEnter(key); return; }
     // walk first: target just below the door, duration scaled by distance
     const d = ROOMS[key].door;
-    const target = { x: d.x + d.w / 2, y: Math.min(d.y + d.h + 6, 648) };
+    const target = { x: d.x + d.w / 2, y: Math.min(d.y + d.h + 6, 690) };
     const dist = Math.hypot(target.x - pos.x, target.y - pos.y);
     const ms = Math.max(260, Math.min(760, dist * 2.1));
     phase.current = "running";
@@ -161,170 +162,162 @@ function CastleSVG({ opening, badges, onDoor }) {
 
     <!-- paper sky with soft washes, like a page from her book -->
     <rect x="0" y="0" width="390" height="720" fill="#faf5ef" />
-    <ellipse cx="195" cy="90" rx="230" ry="90" fill="#cfe7f5" opacity=".4" filter="url(#c-wash)" />
-    <ellipse cx="195" cy="400" rx="220" ry="200" fill="#ffd9cf" opacity=".28" filter="url(#c-wash)" />
+    <ellipse cx="195" cy="86" rx="230" ry="86" fill="#cfe7f5" opacity=".4" filter="url(#c-wash)" />
+    <ellipse cx="195" cy="400" rx="220" ry="200" fill="#ffd9cf" opacity=".26" filter="url(#c-wash)" />
     <ellipse cx="195" cy="676" rx="260" ry="46" fill="#cdeac0" opacity=".7" filter="url(#c-wash)" />
 
     <!-- sun with little rays -->
-    <circle cx="336" cy="56" r="18" fill="#ffd166" filter="url(#c-wc)" />
+    <circle cx="336" cy="52" r="16" fill="#ffd166" filter="url(#c-wc)" />
     <g stroke="#ffd166" stroke-width="3" stroke-linecap="round" opacity=".8">
-      <path d="M336 28 v-9" /><path d="M360 38 l7 -7" /><path d="M312 38 l-7 -7" /><path d="M364 56 h9" />
+      <path d="M336 27 v-8" /><path d="M358 36 l6 -6" /><path d="M314 36 l-6 -6" /><path d="M361 52 h8" />
     </g>
 
     <!-- scattered stars + hearts (her book's confetti) -->
-    <path transform="translate(46 60)" fill="#ff8fa3" d="M 0 -7 L 1.8 -1.8 L 7 0 L 1.8 1.8 L 0 7 L -1.8 1.8 L -7 0 L -1.8 -1.8 Z" />
-    <path transform="translate(140 36) scale(.8)" fill="#ffd166" d="M 0 -7 L 1.8 -1.8 L 7 0 L 1.8 1.8 L 0 7 L -1.8 1.8 L -7 0 L -1.8 -1.8 Z" />
-    <path transform="translate(250 52) scale(.7)" fill="#c4a6ff" d="M 0 -7 L 1.8 -1.8 L 7 0 L 1.8 1.8 L 0 7 L -1.8 1.8 L -7 0 L -1.8 -1.8 Z" />
-    <path transform="translate(22 118) scale(1.1)" fill="#ff8fa3" opacity=".8" d="M 0 4 C -6 -2 -8 -6 -4.5 -8 C -2 -9.5 0 -7.5 0 -6 C 0 -7.5 2 -9.5 4.5 -8 C 8 -6 6 -2 0 4 Z" />
-    <path transform="translate(372 130)" fill="#c4a6ff" opacity=".7" d="M 0 4 C -6 -2 -8 -6 -4.5 -8 C -2 -9.5 0 -7.5 0 -6 C 0 -7.5 2 -9.5 4.5 -8 C 8 -6 6 -2 0 4 Z" />
+    <path transform="translate(44 54)" fill="#ff8fa3" d="M 0 -7 L 1.8 -1.8 L 7 0 L 1.8 1.8 L 0 7 L -1.8 1.8 L -7 0 L -1.8 -1.8 Z" />
+    <path transform="translate(150 34) scale(.8)" fill="#ffd166" d="M 0 -7 L 1.8 -1.8 L 7 0 L 1.8 1.8 L 0 7 L -1.8 1.8 L -7 0 L -1.8 -1.8 Z" />
+    <path transform="translate(248 48) scale(.7)" fill="#c4a6ff" d="M 0 -7 L 1.8 -1.8 L 7 0 L 1.8 1.8 L 0 7 L -1.8 1.8 L -7 0 L -1.8 -1.8 Z" />
+    <path transform="translate(20 130) scale(1.1)" fill="#ff8fa3" opacity=".8" d="M 0 4 C -6 -2 -8 -6 -4.5 -8 C -2 -9.5 0 -7.5 0 -6 C 0 -7.5 2 -9.5 4.5 -8 C 8 -6 6 -2 0 4 Z" />
+    <path transform="translate(372 122)" fill="#c4a6ff" opacity=".7" d="M 0 4 C -6 -2 -8 -6 -4.5 -8 C -2 -9.5 0 -7.5 0 -6 C 0 -7.5 2 -9.5 4.5 -8 C 8 -6 6 -2 0 4 Z" />
 
     <!-- lawn -->
     <rect x="0" y="652" width="390" height="68" fill="#cdeac0" filter="url(#c-wc)" />
-    <ellipse cx="60" cy="668" rx="26" ry="7" fill="#7fb069" opacity=".5" />
-    <ellipse cx="330" cy="672" rx="30" ry="8" fill="#7fb069" opacity=".45" />
+    <ellipse cx="60" cy="666" rx="26" ry="7" fill="#7fb069" opacity=".5" />
+    <ellipse cx="330" cy="670" rx="30" ry="8" fill="#7fb069" opacity=".45" />
 
-    <!-- towers -->
-    <g stroke="#d9a173" stroke-width="2" filter="url(#c-wc)">
-      <rect x="24" y="112" width="94" height="548" fill="#fff4e6" />
-      <rect x="272" y="112" width="94" height="548" fill="#fff4e6" />
-      <path d="M14 116 L71 42 L128 116 Z" fill="#ff9e7d" stroke="#e07a5f" />
-      <path d="M262 116 L319 42 L376 116 Z" fill="#ff9e7d" stroke="#e07a5f" />
+    <!-- ONE castle silhouette (no interior seams — the door grid stays clean):
+         two towers joined by a battlemented wall -->
+    <path d="M50 652 V128 H140 V152 H156 V128 H186 V152 H204 V128 H234 V152 H250 V128 H340 V652 Z"
+      fill="#fff4e6" stroke="#d9a173" stroke-width="2" filter="url(#c-wc)" />
+    <!-- tower roofs + flags -->
+    <g filter="url(#c-wc)">
+      <path d="M40 132 L95 58 L150 132 Z" fill="#ff9e7d" stroke="#e07a5f" stroke-width="2" />
+      <path d="M240 132 L295 58 L350 132 Z" fill="#ff9e7d" stroke="#e07a5f" stroke-width="2" />
     </g>
-    <line x1="71" y1="42" x2="71" y2="22" stroke="#b96f4e" stroke-width="2" />
-    <path d="M71 22 L95 29 L71 36 Z" fill="#ff8fa3" />
-    <line x1="319" y1="42" x2="319" y2="22" stroke="#b96f4e" stroke-width="2" />
-    <path d="M319 22 L343 29 L319 36 Z" fill="#ff8fa3" />
+    <line x1="95" y1="58" x2="95" y2="38" stroke="#b96f4e" stroke-width="2" />
+    <path d="M95 38 L118 45 L95 52 Z" fill="#ff8fa3" />
+    <line x1="295" y1="58" x2="295" y2="38" stroke="#b96f4e" stroke-width="2" />
+    <path d="M295 38 L318 45 L295 52 Z" fill="#ff8fa3" />
 
-    <!-- keep + battlements -->
-    <rect x="102" y="158" width="186" height="502" fill="#fff4e6" stroke="#d9a173" stroke-width="2" filter="url(#c-wc)" />
-    <g fill="#fff4e6" stroke="#d9a173" stroke-width="2">
-      <rect x="104" y="144" width="24" height="15" /><rect x="144" y="144" width="24" height="15" />
-      <rect x="184" y="144" width="24" height="15" /><rect x="224" y="144" width="24" height="15" />
-      <rect x="262" y="144" width="24" height="15" />
-    </g>
-    <!-- rose window -->
-    <circle cx="195" cy="214" r="24" fill="#ffd9cf" stroke="#e07a5f" stroke-width="2" />
-    <circle cx="195" cy="214" r="15" fill="none" stroke="#e07a5f" stroke-width="1.6" />
-    <path d="M195 199 v30 M180 214 h30" stroke="#e07a5f" stroke-width="1.4" />
-    <path transform="translate(195 214) scale(.8)" fill="#ff8fa3" d="M 0 4 C -6 -2 -8 -6 -4.5 -8 C -2 -9.5 0 -7.5 0 -6 C 0 -7.5 2 -9.5 4.5 -8 C 8 -6 6 -2 0 4 Z" />
+    <!-- rose window, top center -->
+    <circle cx="195" cy="196" r="20" fill="#ffd9cf" stroke="#e07a5f" stroke-width="2" />
+    <circle cx="195" cy="196" r="12" fill="none" stroke="#e07a5f" stroke-width="1.4" />
+    <path transform="translate(195 196) scale(.75)" fill="#ff8fa3" d="M 0 4 C -6 -2 -8 -6 -4.5 -8 C -2 -9.5 0 -7.5 0 -6 C 0 -7.5 2 -9.5 4.5 -8 C 8 -6 6 -2 0 4 Z" />
 
-    <!-- floor lines (cutaway hint) -->
+    <!-- floor lines: the grid's rows -->
     <g stroke="#e8dfd4" stroke-width="1.6">
-      <line x1="30" y1="292" x2="360" y2="292" />
-      <line x1="30" y1="456" x2="360" y2="456" />
-      <line x1="30" y1="592" x2="360" y2="592" />
+      <line x1="56" y1="268" x2="334" y2="268" />
+      <line x1="56" y1="396" x2="334" y2="396" />
+      <line x1="56" y1="524" x2="334" y2="524" />
     </g>
 
-    <!-- foyer checker floor -->
+    <!-- foyer checker floor, just above the ground line -->
     <g fill="#f0e8dd">
-      <rect x="120" y="644" width="18" height="10"/><rect x="156" y="644" width="18" height="10"/>
-      <rect x="192" y="644" width="18" height="10"/><rect x="228" y="644" width="18" height="10"/>
-      <rect x="138" y="654" width="18" height="6"/><rect x="174" y="654" width="18" height="6"/>
-      <rect x="210" y="654" width="18" height="6"/><rect x="246" y="654" width="18" height="6"/>
+      <rect x="130" y="636" width="16" height="8"/><rect x="162" y="636" width="16" height="8"/>
+      <rect x="194" y="636" width="16" height="8"/><rect x="226" y="636" width="16" height="8"/>
+      <rect x="146" y="644" width="16" height="8"/><rect x="178" y="644" width="16" height="8"/>
+      <rect x="210" y="644" width="16" height="8"/><rect x="242" y="644" width="16" height="8"/>
     </g>
 
-    <!-- ================= doors (registry-driven) ================= -->
+    <!-- ============ the door grid: 2 columns × 4 floors ============ -->
 
-    <!-- 🔭 Observatory: round porthole window, pale-blue glass -->
+    <!-- floor 1 L · 🔭 Observatory: arched window -->
     <${Door} k="map" opening=${opening} badge=${badges.map} onDoor=${onDoor}>
       <g class="leaf">
-        <circle cx="71" cy="203" r="28" fill="#cfe7f5" stroke="#d9a173" stroke-width="2" />
-        <path d="M71 175 v56 M43 203 h56" stroke="#d9a173" stroke-width="1.4" />
+        <path d="M111 268 v-36 a22 22 0 0 1 44 0 v36 Z" fill="#cfe7f5" stroke="#d9a173" stroke-width="2" />
+        <path d="M133 212 v56 M111 240 h44" stroke="#d9a173" stroke-width="1.3" />
       </g>
-      <circle cx="71" cy="203" r="28" fill="url(#c-glow)" class="doorlight" />
-      <circle cx="71" cy="203" r="28" fill="none" stroke="#d9a173" stroke-width="2" />
-      <text class="door-glyph" x="71" y="211" font-size="20">🔭</text>
+      <path d="M111 268 v-36 a22 22 0 0 1 44 0 v36 Z" fill="url(#c-glow)" class="doorlight" />
+      <path d="M111 268 v-36 a22 22 0 0 1 44 0 v36 Z" fill="none" stroke="#d9a173" stroke-width="2" />
+      <text class="door-glyph" x="133" y="246" font-size="17">🔭</text>
     <//>
 
-    <!-- ☀️ Sunroom: arched window, pale-blue glass -->
+    <!-- floor 1 R · ☀️ Sunroom: arched window -->
     <${Door} k="chapel" opening=${opening} badge=${null} onDoor=${onDoor}>
       <g class="leaf">
-        <path d="M295 256 v-64 a24 24 0 0 1 48 0 v64 Z" fill="#cfe7f5" stroke="#d9a173" stroke-width="2" />
-        <path d="M319 172 v84 M295 214 h48" stroke="#d9a173" stroke-width="1.4" />
+        <path d="M235 268 v-36 a22 22 0 0 1 44 0 v36 Z" fill="#cfe7f5" stroke="#d9a173" stroke-width="2" />
+        <path d="M257 212 v56 M235 240 h44" stroke="#d9a173" stroke-width="1.3" />
       </g>
-      <path d="M295 256 v-64 a24 24 0 0 1 48 0 v64 Z" fill="url(#c-glow)" class=${`doorlight ${badges.chapel ? "lit" : ""}`} />
-      <path d="M295 256 v-64 a24 24 0 0 1 48 0 v64 Z" fill="none" stroke="#d9a173" stroke-width="2" />
-      <text class="door-glyph" x="319" y="224" font-size="19">☀️</text>
+      <path d="M235 268 v-36 a22 22 0 0 1 44 0 v36 Z" fill="url(#c-glow)" class=${`doorlight ${badges.chapel ? "lit" : ""}`} />
+      <path d="M235 268 v-36 a22 22 0 0 1 44 0 v36 Z" fill="none" stroke="#d9a173" stroke-width="2" />
+      <text class="door-glyph" x="257" y="246" font-size="17">☀️</text>
     <//>
 
-    <!-- 🖼 Gallery: a little watercolor in a gold frame (frame stays; canvas lights) -->
+    <!-- floor 2 L · 🖼 Gallery: gold-framed watercolor, hung above the line -->
     <${Door} k="memories" opening=${opening} badge=${badges.memories} onDoor=${onDoor}>
-      <rect x="58" y="318" width="108" height="108" rx="5" fill="#e8c39e" stroke="#c9a227" stroke-width="2.5" />
-      <rect x="66" y="326" width="92" height="92" rx="3" fill="#fffdfb" />
+      <rect x="102" y="330" width="62" height="62" rx="4" fill="#e8c39e" stroke="#c9a227" stroke-width="2" />
+      <rect x="108" y="336" width="50" height="50" rx="2" fill="#fffdfb" />
       <g class="leaf">
-        <rect x="66" y="326" width="92" height="92" rx="3" fill="#cfe7f5" />
-        <circle cx="138" cy="346" r="8" fill="#ffd166" />
-        <path d="M66 392 q22 -22 44 -6 q24 18 48 -14 v46 h-92 Z" fill="#7fb069" opacity=".85" />
-        <path d="M66 402 q30 -16 52 0 q22 14 40 -4 v20 h-92 Z" fill="#cdeac0" />
+        <rect x="108" y="336" width="50" height="50" rx="2" fill="#cfe7f5" />
+        <circle cx="147" cy="347" r="5" fill="#ffd166" />
+        <path d="M108 372 q12 -12 24 -3 q13 10 26 -8 v25 h-50 Z" fill="#7fb069" opacity=".85" />
+        <path d="M108 378 q16 -9 28 0 q12 8 22 -2 v10 h-50 Z" fill="#cdeac0" />
       </g>
-      <rect x="66" y="326" width="92" height="92" rx="3" fill="url(#c-glow)" class="doorlight" />
-      <rect x="66" y="326" width="92" height="92" rx="3" fill="none" stroke="#d9a173" stroke-width="1.4" />
-      <text class="door-glyph" x="112" y="380" font-size="20">🖼️</text>
+      <rect x="108" y="336" width="50" height="50" rx="2" fill="url(#c-glow)" class="doorlight" />
+      <rect x="108" y="336" width="50" height="50" rx="2" fill="none" stroke="#d9a173" stroke-width="1.3" />
+      <text class="door-glyph" x="133" y="366" font-size="16">🖼️</text>
     <//>
 
-    <!-- 💃 Ballroom: tall double doors, warm wood + gold knobs -->
+    <!-- floor 2 R · 💃 Ballroom: double door, gold knobs -->
     <${Door} k="plans" opening=${opening} badge=${badges.plans} onDoor=${onDoor}>
-      <path d="M228 456 v-80 a48 48 0 0 1 96 0 v80 Z" fill="url(#c-glow)" />
+      <path d="M231 396 v-52 a26 26 0 0 1 52 0 v52 Z" fill="url(#c-glow)" />
       <g class="leaf">
-        <path d="M228 456 v-80 a48 48 0 0 1 96 0 v80 Z" fill="#b96f4e" />
-        <line x1="276" y1="330" x2="276" y2="456" stroke="#8a5a44" stroke-width="2" />
-        <path d="M240 452 v-72 a36 36 0 0 1 32 -22 v94 Z" fill="none" stroke="#8a5a44" stroke-width="1.3" opacity=".55" />
-        <path d="M312 452 v-72 a36 36 0 0 0 -32 -22 v94 Z" fill="none" stroke="#8a5a44" stroke-width="1.3" opacity=".55" />
-        <circle cx="268" cy="400" r="3" fill="#ffd166" /><circle cx="284" cy="400" r="3" fill="#ffd166" />
+        <path d="M231 396 v-52 a26 26 0 0 1 52 0 v52 Z" fill="#b96f4e" />
+        <line x1="257" y1="320" x2="257" y2="396" stroke="#8a5a44" stroke-width="1.6" />
+        <circle cx="251" cy="362" r="2.4" fill="#ffd166" /><circle cx="263" cy="362" r="2.4" fill="#ffd166" />
       </g>
-      <path d="M228 456 v-80 a48 48 0 0 1 96 0 v80 Z" fill="none" stroke="#8a5a44" stroke-width="2" />
-      <text class="door-glyph" x="276" y="416" font-size="22">💃</text>
+      <path d="M231 396 v-52 a26 26 0 0 1 52 0 v52 Z" fill="none" stroke="#8a5a44" stroke-width="2" />
+      <text class="door-glyph" x="257" y="372" font-size="17">💃</text>
     <//>
 
-    <!-- 🎴 Game Room: slim arch door, storybook proportions -->
+    <!-- floor 3 L · 🎴 Game Room: arch door -->
     <${Door} k="gameroom" opening=${opening} badge=${badges.gameroom} onDoor=${onDoor}>
-      <path d="M52 592 v-74 a32 32 0 0 1 64 0 v74 Z" fill="url(#c-glow)" />
+      <path d="M107 524 v-52 a26 26 0 0 1 52 0 v52 Z" fill="url(#c-glow)" />
       <g class="leaf">
-        <path d="M52 592 v-74 a32 32 0 0 1 64 0 v74 Z" fill="#b96f4e" />
-        <path d="M62 588 v-68 a22 22 0 0 1 44 0 v68 Z" fill="none" stroke="#8a5a44" stroke-width="1.3" opacity=".55" />
-        <circle cx="106" cy="548" r="3" fill="#ffd166" />
+        <path d="M107 524 v-52 a26 26 0 0 1 52 0 v52 Z" fill="#b96f4e" />
+        <path d="M114 521 v-47 a19 19 0 0 1 38 0 v47 Z" fill="none" stroke="#8a5a44" stroke-width="1.1" opacity=".55" />
+        <circle cx="151" cy="490" r="2.4" fill="#ffd166" />
       </g>
-      <path d="M52 592 v-74 a32 32 0 0 1 64 0 v74 Z" fill="none" stroke="#8a5a44" stroke-width="2" />
-      <text class="door-glyph" x="84" y="556" font-size="21">🎴</text>
+      <path d="M107 524 v-52 a26 26 0 0 1 52 0 v52 Z" fill="none" stroke="#8a5a44" stroke-width="2" />
+      <text class="door-glyph" x="133" y="500" font-size="17">🎴</text>
     <//>
 
-    <!-- 💗 Vault: round pink door with a gold heart lock -->
+    <!-- floor 3 R · 💗 Vault: round pink door -->
     <${Door} k="schmoney" opening=${opening} badge=${badges.schmoney} onDoor=${onDoor}>
-      <circle cx="254" cy="548" r="40" fill="url(#c-glow)" />
+      <circle cx="257" cy="496" r="28" fill="url(#c-glow)" />
       <g class="leaf">
-        <circle cx="254" cy="548" r="40" fill="#ff8fa3" />
-        <circle cx="254" cy="548" r="29" fill="none" stroke="#cf4a63" stroke-width="2" opacity=".7" />
-        <circle cx="254" cy="548" r="35" fill="none" stroke="#ffd166" stroke-width="1.6" stroke-dasharray="1 8" stroke-linecap="round" />
+        <circle cx="257" cy="496" r="28" fill="#ff8fa3" />
+        <circle cx="257" cy="496" r="20" fill="none" stroke="#cf4a63" stroke-width="1.6" opacity=".7" />
+        <circle cx="257" cy="496" r="24" fill="none" stroke="#ffd166" stroke-width="1.4" stroke-dasharray="1 6" stroke-linecap="round" />
       </g>
-      <circle cx="254" cy="548" r="40" fill="none" stroke="#cf4a63" stroke-width="2" />
-      <text class="door-glyph" x="254" y="557" font-size="22">💗</text>
+      <circle cx="257" cy="496" r="28" fill="none" stroke="#cf4a63" stroke-width="2" />
+      <text class="door-glyph" x="257" y="503" font-size="17">💗</text>
     <//>
 
-    <!-- 🌿 Garden: a green gate you can peek through -->
+    <!-- ground L · 🌿 Garden: green gate -->
     <${Door} k="joinme" opening=${opening} badge=${badges.joinme} onDoor=${onDoor}>
-      <path d="M330 592 v-62 a21 21 0 0 1 42 0 v62 Z" fill="url(#c-glow)" />
+      <path d="M107 652 v-52 a26 26 0 0 1 52 0 v52 Z" fill="url(#c-glow)" />
       <g class="leaf">
-        <path d="M330 592 v-62 a21 21 0 0 1 42 0 v62 Z" fill="#cdeac0" />
-        <g stroke="#7fb069" stroke-width="3" stroke-linecap="round">
-          <path d="M336 590 v-54 M345 590 v-61 M357 590 v-61 M366 590 v-54" />
+        <path d="M107 652 v-52 a26 26 0 0 1 52 0 v52 Z" fill="#cdeac0" />
+        <g stroke="#7fb069" stroke-width="2.6" stroke-linecap="round">
+          <path d="M114 650 v-44 M126 650 v-51 M140 650 v-51 M152 650 v-44" />
         </g>
-        <circle cx="339" cy="586" r="3.4" fill="#ff8fa3" />
-        <circle cx="362" cy="582" r="3" fill="#ffd166" />
+        <circle cx="117" cy="646" r="2.8" fill="#ff8fa3" />
+        <circle cx="149" cy="643" r="2.5" fill="#ffd166" />
       </g>
-      <path d="M330 592 v-62 a21 21 0 0 1 42 0 v62 Z" fill="none" stroke="#7fb069" stroke-width="2" />
-      <text class="door-glyph" x="351" y="564" font-size="17">🌿</text>
+      <path d="M107 652 v-52 a26 26 0 0 1 52 0 v52 Z" fill="none" stroke="#7fb069" stroke-width="2" />
+      <text class="door-glyph" x="133" y="628" font-size="15">🌿</text>
     <//>
 
-    <!-- 🔧 Workshop: little cellar hatch in the foyer -->
+    <!-- ground R · 🔧 Workshop: cellar hatch -->
     <${Door} k="more" opening=${opening} badge=${badges.more} onDoor=${onDoor}>
-      <rect x="170" y="608" width="50" height="36" rx="6" fill="url(#c-glow)" />
+      <rect x="231" y="616" width="52" height="36" rx="6" fill="url(#c-glow)" />
       <g class="leaf">
-        <rect x="170" y="608" width="50" height="36" rx="6" fill="#8a5a44" />
-        <line x1="178" y1="617" x2="212" y2="617" stroke="#b96f4e" stroke-width="2" />
-        <circle cx="210" cy="629" r="2.6" fill="#ffd166" />
+        <rect x="231" y="616" width="52" height="36" rx="6" fill="#8a5a44" />
+        <line x1="239" y1="625" x2="275" y2="625" stroke="#b96f4e" stroke-width="2" />
+        <circle cx="272" cy="638" r="2.4" fill="#ffd166" />
       </g>
-      <rect x="170" y="608" width="50" height="36" rx="6" fill="none" stroke="#8a5a44" stroke-width="2" />
-      <text class="door-glyph" x="195" y="634" font-size="15">🔧</text>
+      <rect x="231" y="616" width="52" height="36" rx="6" fill="none" stroke="#8a5a44" stroke-width="2" />
+      <text class="door-glyph" x="257" y="641" font-size="14">🔧</text>
     <//>
 
     <!-- the player's starting spot: a soft circle in the grass -->
