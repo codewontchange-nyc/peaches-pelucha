@@ -20,11 +20,11 @@ export const ROOMS = {
   map:      { label: "Observatory", emoji: "🔭", door: { x: 111, y: 210, w: 44, h: 58 } },   // floor 1 L
   chapel:   { label: "Sunroom",     emoji: "☀️", door: { x: 235, y: 210, w: 44, h: 58 } },   // floor 1 R
   memories: { label: "Gallery",     emoji: "🖼️", door: { x: 102, y: 330, w: 62, h: 62 } },   // floor 2 L
-  plans:    { label: "Ballroom",    emoji: "💃", door: { x: 231, y: 318, w: 52, h: 78 } },   // floor 2 R
-  gameroom: { label: "Game Room",   emoji: "🎴", door: { x: 107, y: 446, w: 52, h: 78 } },   // floor 3 L
+  plans:    { label: "Ballroom",    emoji: "📅", door: { x: 231, y: 318, w: 52, h: 78 } },   // floor 2 R
+  gameroom: { label: "Game Room",   emoji: "🃏", door: { x: 107, y: 446, w: 52, h: 78 } },   // floor 3 L
   schmoney: { label: "Vault",       emoji: "💗", door: { x: 229, y: 468, w: 56, h: 56 } },   // floor 3 R
-  joinme:   { label: "Garden",      emoji: "🌿", door: { x: 107, y: 574, w: 52, h: 78 } },   // ground L
-  more:     { label: "Workshop",    emoji: "🔧", door: { x: 231, y: 616, w: 52, h: 36 } },   // ground R
+  joinme:   { label: "Zen Garden",  emoji: "🌿", door: { x: 107, y: 574, w: 52, h: 78 } },   // ground L
+  more:     { label: "Workshop",    emoji: "🔧", door: { x: 231, y: 574, w: 52, h: 78 } },   // ground R
 };
 
 // door center in viewBox units — the avatar walk target (phase 2) + zoom origin
@@ -266,7 +266,7 @@ function CastleSVG({ opening, badges, onDoor }) {
         <circle cx="251" cy="362" r="2.4" fill="#ffd166" /><circle cx="263" cy="362" r="2.4" fill="#ffd166" />
       </g>
       <path d="M231 396 v-52 a26 26 0 0 1 52 0 v52 Z" fill="none" stroke="#8a5a44" stroke-width="2" />
-      <text class="door-glyph" x="257" y="372" font-size="17">💃</text>
+      <text class="door-glyph" x="257" y="372" font-size="17">📅</text>
     <//>
 
     <!-- floor 3 L · 🎴 Game Room: arch door -->
@@ -278,7 +278,7 @@ function CastleSVG({ opening, badges, onDoor }) {
         <circle cx="151" cy="490" r="2.4" fill="#ffd166" />
       </g>
       <path d="M107 524 v-52 a26 26 0 0 1 52 0 v52 Z" fill="none" stroke="#8a5a44" stroke-width="2" />
-      <text class="door-glyph" x="133" y="500" font-size="17">🎴</text>
+      <text class="door-glyph" x="133" y="500" font-size="17">🃏</text>
     <//>
 
     <!-- floor 3 R · 💗 Vault: round pink door -->
@@ -308,16 +308,17 @@ function CastleSVG({ opening, badges, onDoor }) {
       <text class="door-glyph" x="133" y="628" font-size="15">🌿</text>
     <//>
 
-    <!-- ground R · 🔧 Workshop: cellar hatch -->
+    <!-- ground R · 🔧 Workshop: arch door in darker wood, iron cross-braces -->
     <${Door} k="more" opening=${opening} badge=${badges.more} onDoor=${onDoor}>
-      <rect x="231" y="616" width="52" height="36" rx="6" fill="url(#c-glow)" />
+      <path d="M231 652 v-52 a26 26 0 0 1 52 0 v52 Z" fill="url(#c-glow)" />
       <g class="leaf">
-        <rect x="231" y="616" width="52" height="36" rx="6" fill="#8a5a44" />
-        <line x1="239" y1="625" x2="275" y2="625" stroke="#b96f4e" stroke-width="2" />
-        <circle cx="272" cy="638" r="2.4" fill="#ffd166" />
+        <path d="M231 652 v-52 a26 26 0 0 1 52 0 v52 Z" fill="#8a5a44" />
+        <line x1="236" y1="612" x2="278" y2="612" stroke="#b96f4e" stroke-width="2" />
+        <line x1="236" y1="634" x2="278" y2="634" stroke="#b96f4e" stroke-width="2" />
+        <circle cx="275" cy="618" r="2.4" fill="#ffd166" />
       </g>
-      <rect x="231" y="616" width="52" height="36" rx="6" fill="none" stroke="#8a5a44" stroke-width="2" />
-      <text class="door-glyph" x="257" y="641" font-size="14">🔧</text>
+      <path d="M231 652 v-52 a26 26 0 0 1 52 0 v52 Z" fill="none" stroke="#8a5a44" stroke-width="2" />
+      <text class="door-glyph" x="257" y="628" font-size="16">🔧</text>
     <//>
 
     <!-- the player's starting spot: a soft circle in the grass -->
