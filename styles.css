@@ -1820,26 +1820,25 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .shout { position: absolute; max-width: 46%; background: #fffdfb;
   border: 2px solid #d9a173; border-radius: 14px; padding: 7px 11px 8px;
   box-shadow: 0 4px 12px -4px rgba(138,90,68,.35);
-  font-size: 11.5px; line-height: 1.45; color: #4a3529;
+  font-size: 13.5px; line-height: 1.45; color: #4a3529;
   animation: shoutPop .5s var(--spring) both; }
 .shout::after { content: ""; position: absolute; bottom: -8px; width: 13px; height: 13px;
   background: #fffdfb; border-right: 2px solid #d9a173; border-bottom: 2px solid #d9a173;
   transform: rotate(45deg); }
-/* bubble centers sit over their spires, so a centered tail points straight
-   down at the window */
-.shout.left { left: 3.5%; top: 21.5%; transform-origin: 50% 110%; }
-.shout.left::after { left: calc(50% - 7px); }
-.shout.right { right: 3.5%; top: 21.5%; transform-origin: 50% 110%; }
-.shout.right::after { left: calc(50% - 7px); }
-.shout.left { transform: translateY(-100%); }
-.shout.right { transform: translateY(-100%); }
+/* each bubble is CENTERED on its spire window's x (windows at 24.4% / 75.6%
+   of the castle), so the centered tail always touches the window no matter
+   how long the text is */
+.shout.left { left: 24.4%; top: 21.2%; transform-origin: 50% 112%; }
+.shout.right { left: 75.6%; top: 21.2%; transform-origin: 50% 112%; }
+.shout::after { left: calc(50% - 7px); }
+.shout { transform: translate(-50%, -100%); width: max-content; }
 .shout-emoji { position: absolute; top: -11px; left: -9px; font-size: 17px;
   filter: drop-shadow(0 2px 3px rgba(138,90,68,.35)); }
 .shout.right .shout-emoji { left: auto; right: -9px; }
 .shout-text { font-family: var(--serif); font-style: italic; }
 @keyframes shoutPop {
-  0% { opacity: 0; transform: translateY(-100%) scale(.3); }
-  70% { opacity: 1; transform: translateY(-100%) scale(1.06); }
-  100% { opacity: 1; transform: translateY(-100%) scale(1); }
+  0% { opacity: 0; transform: translate(-50%, -100%) scale(.3); }
+  70% { opacity: 1; transform: translate(-50%, -100%) scale(1.06); }
+  100% { opacity: 1; transform: translate(-50%, -100%) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) { .shout { animation: none; } }
