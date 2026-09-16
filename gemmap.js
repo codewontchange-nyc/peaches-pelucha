@@ -61,13 +61,14 @@ export function GemMap({ me, partner, prog, onPlay, onClose }) {
           const cleared = !!row && row.stars > 0;
           const isCurrent = l === current;
           const locked = l > current;
-          const gift = l % 5 === 0;
+          const boss = l >= 10 && l % 10 === 0;
+          const gift = l % 5 === 0 && !boss;
           return html`<button key=${l}
-            class=${`gemstop ${cleared ? "done" : ""} ${isCurrent ? "now" : ""} ${locked ? "locked" : ""} ${gift ? "gift" : ""}`}
+            class=${`gemstop ${cleared ? "done" : ""} ${isCurrent ? "now" : ""} ${locked ? "locked" : ""} ${gift ? "gift" : ""} ${boss ? "boss" : ""}`}
             style=${`left:${xFor(l)}%; top:${yFor(l)}px`}
             disabled=${locked}
             onClick=${() => !locked && onPlay(l)}>
-            <span class="gemstop-n">${gift ? "🎁" : l}</span>
+            <span class="gemstop-n">${boss ? "⛈️" : gift ? "🎁" : l}</span>
             ${cleared && html`<span class="gemstop-stars">${"⭐".repeat(row.stars)}</span>`}
             ${partner && theirMax + 1 === l && html`<span class="gemstop-partner">${partner.emoji}🎈</span>`}
           </button>`;

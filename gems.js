@@ -90,7 +90,8 @@ function rollMods(seed, levelNo, gift) {
 
 /* ---- difficulty curve ---------------------------------------------------- */
 export function difficulty(levelNo) {
-  const gift = levelNo % 5 === 0;
+  const boss = levelNo >= 10 && levelNo % 10 === 0;      // ⛈ every 10th
+  const gift = levelNo % 5 === 0 && !boss;
   const palette = gift ? 3 : Math.min(7, 4 + (levelNo >= 8 ? 1 : 0) + (levelNo >= 20 ? 1 : 0) + (levelNo >= 40 ? 1 : 0));
   const rowsInit = gift ? 2 : Math.min(7, 3 + Math.floor(levelNo / 3));
   // formation rotation — every level type reappears on a fixed cadence
@@ -114,7 +115,9 @@ export function difficulty(levelNo) {
     heart: gift ? 0 : levelNo >= 26 ? 0.015 : 0,  // 💗 +500 when freed
     crown: gift ? 0 : levelNo >= 30 ? 0.02 : 0,   // 👑 clears its whole row
   };
-  return { palette, rowsInit, formation, moveEvery, gift, shapeMode, stormy, specials };
+  if (boss) return { palette: 5, rowsInit: 3, formation: "rows", moveEvery: 99, gift: false, boss,
+    shapeMode: false, stormy: false, specials: { stone: 0, caged: 0, bomb: 0, star: 0, ice: 0, heart: 0, crown: 0 } };
+  return { palette, rowsInit, formation, moveEvery, gift, boss: false, shapeMode, stormy, specials };
 }
 
 /* formation masks — pure functions of (r, c, rowsTotal) */
@@ -188,7 +191,7 @@ export function genLevel(seed, levelNo) {
   }
   // a board that starts with orphans would drop gems on frame one — reattach
   findOrphans(rows).forEach(([r, c]) => { rows[r][c] = null; });
-  const mods = rollMods(seed, levelNo, d.gift);
+  const mods = rollMods(seed, levelNo, d.gift || d.boss);
   return { no: levelNo, seed, ...d, rows, mods };
 }
 
@@ -240,6 +243,8 @@ export function newRun(seed, levelNo) {
     bagIdx: 0, cur: null, next: null, shotIdx: 0, misses: 0, drops: 0,
     combo: 0, score: 0, status: "playing",
   };
+  // ⛈ boss levels: the storm itself is the enemy — HP, tantrums, weak windows
+  if (level.boss) run.boss = { hp: 5 + Math.floor(levelNo / 10), maxHp: 5 + Math.floor(levelNo / 10), exposed: false, acts: 0 };
   let d = draw(run); run.cur = d.code; run.bagIdx = d.bagIdx;
   d = draw(run); run.next = d.code; run.bagIdx = d.bagIdx;
   return run;
@@ -350,6 +355,7 @@ export function findOrphans(rows) {
    Synchronous + total: returns the new run and an ordered event list the
    renderer plays back. Board mutations all happen HERE. */
 export function applyShot(run, action) {
+  if (run.mode === "duel") return applyDuelShot(run, action);
   if (run.status !== "playing") return { run, events: [] };
   const events = [];
   const next = { ...run, rows: run.rows.map((r) => r.slice()) };
@@ -359,6 +365,10 @@ export function applyShot(run, action) {
     return { run: next, events: [{ t: "swap" }] };
   }
   if (action.t !== "shot") return { run, events: [] };
+  // remember whether we were one breath from death — clearing from here is a CLUTCH
+  let lowestBefore = -1;
+  next.rows.forEach((row, r) => { if (row.some((v) => v != null)) lowestBefore = r; });
+  next.clutchArmed = lowestBefore + next.drops >= DEAD_ROW - 2;
 
   const flight = simulateFlight(next.rows, next.drops, action.a, next.phys);
   events.push({ t: "fly", path: flight.path, bounces: flight.bounces, code: next.cur });
@@ -464,15 +474,82 @@ export function applyShot(run, action) {
   } else {
     next.combo = 0;
   }
+  // ⛈ boss combat: pops wound the storm; big pops (and exposed windows) hurt more
+  if (next.boss && popped) {
+    const popSize = events.find((e) => e.t === "pop")?.cells.length || 0;
+    let dmg = popSize >= 5 ? 2 : 1;
+    if (next.boss.exposed) { dmg += 1; next.boss.exposed = false; }
+    next.boss = { ...next.boss, hp: Math.max(0, next.boss.hp - dmg) };
+    events.push({ t: "bossHit", dmg, hp: next.boss.hp });
+    if (next.boss.hp <= 0) {
+      // the storm breaks: everything left falls, big bonus, level cleared
+      const rest = [];
+      next.rows.forEach((row, r) => row.forEach((v, c) => { if (v != null) { rest.push([r, c]); next.rows[r][c] = null; } }));
+      if (rest.length) events.push({ t: "fall", cells: rest, pts: 0 });
+      next.score += 1500;
+      events.push({ t: "bossDown", pts: 1500 });
+    }
+  }
   next.shotIdx++;
+  // ⛈ the boss acts every 2nd shot: spits gems, stones your matches, or ROARS
+  // (exposing its weak point — the next pop hits double)
+  if (next.boss && next.boss.hp > 0 && next.status === "playing" && next.shotIdx % 2 === 0) bossAct(next, events);
   // 🐝 the LIVING SWARM: after every shot the formation fights back —
   // it grows new gems at its edges and crawls sideways in seeded-random
   // directions. All driven by shotIdx off the "swarm" stream: deterministic,
   // replayable, and the aim preview always sees the post-move board.
-  if (next.status === "playing") swarmMove(next, events);
+  if (next.status === "playing" && !next.boss) swarmMove(next, events);
   // ⛈ storm levels: the sky ALSO lobs a gem back every 4th shot
   if (next.stormy && next.status === "playing" && next.shotIdx % 4 === 0) stormShot(next, events);
   return finishShot(next, events, popped);
+}
+
+function bossAct(next, events) {
+  const rng = stream(next.seed, next.levelNo, "boss");
+  next.boss = { ...next.boss, acts: next.boss.acts + 1 };
+  for (let i = 0; i < (next.boss.acts - 1) * 3; i++) rng();
+  const draws = [rng(), rng(), rng()];
+  if (next.boss.acts % 3 === 0) {
+    // ROAR: the weak point opens — land a pop NOW for double damage
+    next.boss = { ...next.boss, exposed: true };
+    events.push({ t: "bossExposed" });
+    return;
+  }
+  if (draws[0] < 0.6) {
+    // spit a burst of gems onto the board
+    const grown = [];
+    for (let gI = 0; gI < 2; gI++) {
+      const spots = [];
+      next.rows.forEach((row, r) => row.forEach((v, c) => {
+        if (v == null) return;
+        for (const [rr, cc] of neighbors(r, c)) {
+          if (rr < 0 || cc < 0 || cc >= colsIn(rr) || rr >= DEAD_ROW - 1) continue;
+          const occ = rr < next.rows.length ? next.rows[rr][cc] : null;
+          if (occ == null && !spots.some(([sr, sc]) => sr === rr && sc === cc)) spots.push([rr, cc]);
+        }
+      }));
+      if (!spots.length) break;
+      spots.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+      const [r, c] = spots[Math.floor(((gI ? draws[2] : draws[1])) * spots.length)];
+      const code = String(Math.floor(((gI ? draws[1] : draws[2])) * next.palette));
+      while (next.rows.length <= r) next.rows.push(new Array(colsIn(next.rows.length)).fill(null));
+      next.rows[r][c] = code;
+      grown.push([r, c, code]);
+    }
+    if (grown.length) events.push({ t: "grow", cells: grown, boss: true });
+  } else {
+    // petrify: turn two colored gems to stone
+    const colored = [];
+    next.rows.forEach((row, r) => row.forEach((v, c) => { if (colorOf(v) != null && v[0] !== "C") colored.push([r, c]); }));
+    const hits = [];
+    for (let k = 0; k < 2 && colored.length; k++) {
+      const idx = Math.floor(draws[1 + k] * colored.length);
+      const [r, c] = colored.splice(idx, 1)[0];
+      next.rows[r][c] = "S";
+      hits.push([r, c]);
+    }
+    if (hits.length) events.push({ t: "bossShield", cells: hits });
+  }
 }
 
 function swarmMove(next, events) {
@@ -555,7 +632,10 @@ function finishShot(next, events, popped) {
   if (!anyLeft) {
     next.status = "cleared";
     next.score += 250;
-    events.push({ t: "clear", score: next.score });
+    // 🫀 CLUTCH: cleared from the brink of death
+    const clutch = !!next.clutchArmed;
+    if (clutch) next.score += 500;
+    events.push({ t: "clear", score: next.score, clutch });
     return { run: next, events };
   }
   // dead? lowest occupied row (plus descent) reaching the lawn
@@ -585,4 +665,139 @@ export function boardHash(run) {
   run.rows.forEach((row, r) => row.forEach((v, c) => { if (v != null) eat(r + "," + c + "=" + v + ";"); }));
   eat("|" + run.drops + "|" + run.score + "|" + run.bagIdx + "|" + run.status);
   return h >>> 0;
+}
+
+/* ============================== ⚔️ DUEL ==================================
+   Warm vs cool on ONE board, alternating shots. Player 0 is ALWAYS warm
+   (🔥 red/yellow/orange), player 1 cool (❄️ green/blue/purple) — the UI
+   decides which human is which. Offense: pop your own colors off the board.
+   Defense: your gems stick where they land, walling the other side in.
+   Win by emptying YOUR colors; flooding the board on your turn loses it. */
+export const WARM = ["0", "1", "5"];
+export const COOL = ["2", "3", "4"];
+const groupOf = (p) => (p === 0 ? WARM : COOL);
+const countGroup = (rows, group) => {
+  let n = 0;
+  rows.forEach((row) => row.forEach((v) => { const c = colorOf(v); if (c != null && group.includes(c)) n++; }));
+  return n;
+};
+function duelDraw(run, p) {
+  const group = groupOf(p);
+  const present = colorsPresent(run.rows);
+  const alive = group.filter((c) => present.has(c));
+  if (!alive.length) return { code: group[0], bagIdx: run.bagIdx[p] };
+  let idx = run.bagIdx[p];
+  for (let guard = 0; guard < 40; guard++) {
+    const gi = +bagAt(run.seed, "duel" + p, 3, idx);
+    idx++;
+    const code = group[gi];
+    if (present.has(code)) return { code, bagIdx: idx };
+  }
+  return { code: alive[0], bagIdx: idx };
+}
+export function newDuelRun(seed) {
+  const rng = stream(seed, "duel", "board");
+  const rows = [];
+  for (let r = 0; r < 5; r++) {
+    const cols = colsIn(r);
+    const row = new Array(cols).fill(null);
+    for (let c = 0; c < cols; c++) {
+      let color = Math.floor(rng() * 6);
+      if (rng() < 0.5) {
+        const nbs = neighbors(r, c).map(([rr, cc]) => colorOf(at(rows.concat([row]), rr, cc))).filter((v) => v != null);
+        if (nbs.length) color = +nbs[Math.floor(rng() * nbs.length)];
+      }
+      row[c] = String(color);
+    }
+    rows.push(row);
+  }
+  const run = {
+    mode: "duel", seed, levelNo: 1, palette: 6, rows, turn: 0,
+    bagIdx: [0, 0], curs: [null, null], nexts: [null, null],
+    cur: null, next: null, shotIdx: 0, misses: 0, drops: 0, moveEvery: 99,
+    combo: 0, score: 0, scores: [0, 0], status: "playing", winner: null,
+    shapeMode: false, formation: "duel", stormy: false, gift: false,
+    mods: [], phys: { grav: 0, wind: 0, inset: 0 }, fog: false,
+  };
+  for (const p of [0, 1]) {
+    let d = duelDraw(run, p); run.curs[p] = d.code; run.bagIdx = run.bagIdx.map((b, i) => (i === p ? d.bagIdx : b));
+    d = duelDraw(run, p); run.nexts[p] = d.code; run.bagIdx = run.bagIdx.map((b, i) => (i === p ? d.bagIdx : b));
+  }
+  run.cur = run.curs[0]; run.next = run.nexts[0];
+  return run;
+}
+function applyDuelShot(run, action) {
+  if (run.status !== "playing") return { run, events: [] };
+  const events = [];
+  const p = run.turn;
+  const next = { ...run, rows: run.rows.map((r) => r.slice()), bagIdx: run.bagIdx.slice(), curs: run.curs.slice(), nexts: run.nexts.slice(), scores: run.scores.slice() };
+
+  if (action.t === "swap") {
+    const c = next.curs[p]; next.curs[p] = next.nexts[p]; next.nexts[p] = c;
+    next.cur = next.curs[p]; next.next = next.nexts[p];
+    return { run: next, events: [{ t: "swap" }] };
+  }
+  if (action.t !== "shot") return { run, events: [] };
+
+  const flight = simulateFlight(next.rows, next.drops, action.a, next.phys);
+  events.push({ t: "fly", path: flight.path, bounces: flight.bounces, code: next.curs[p] });
+  const land = flight.landing;
+  if (land) {
+    while (next.rows.length <= land.r) next.rows.push(new Array(colsIn(next.rows.length)).fill(null));
+    next.rows[land.r][land.c] = next.curs[p];
+    events.push({ t: "place", r: land.r, c: land.c, code: next.curs[p] });
+    const group = matchGroup(next.rows, land.r, land.c);
+    if (group.length >= 3) {
+      group.forEach(([r, c]) => { next.rows[r][c] = null; });
+      const pts = group.length * 10;
+      next.scores[p] += pts;
+      events.push({ t: "pop", cells: group, pts });
+      const orphans = findOrphans(next.rows);
+      if (orphans.length) {
+        orphans.forEach(([r, c]) => { next.rows[r][c] = null; });
+        next.scores[p] += orphans.length * 20;
+        events.push({ t: "fall", cells: orphans, pts: orphans.length * 20 });
+      }
+    }
+  }
+  next.shotIdx++;
+  // pressure: a gem grows each shot, alternating warm/cool so neither side starves
+  const rng = stream(next.seed, "duel", "grow");
+  for (let i = 0; i < (next.shotIdx - 1) * 3; i++) rng();
+  const draws = [rng(), rng(), rng()];
+  const gGroup = next.shotIdx % 2 ? WARM : COOL;
+  const spots = [];
+  next.rows.forEach((row, r) => row.forEach((v, c) => {
+    if (v == null) return;
+    for (const [rr, cc] of neighbors(r, c)) {
+      if (rr < 0 || cc < 0 || cc >= colsIn(rr) || rr >= DEAD_ROW - 1) continue;
+      const occ = rr < next.rows.length ? next.rows[rr][cc] : null;
+      if (occ == null && !spots.some(([sr, sc]) => sr === rr && sc === cc)) spots.push([rr, cc]);
+    }
+  }));
+  if (spots.length) {
+    spots.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const [r, c] = spots[Math.floor(draws[0] * spots.length)];
+    const code = gGroup[Math.floor(draws[1] * 3)];
+    while (next.rows.length <= r) next.rows.push(new Array(colsIn(next.rows.length)).fill(null));
+    next.rows[r][c] = code;
+    events.push({ t: "grow", cells: [[r, c, code]] });
+  }
+  // outcomes: your colors gone = you win; flooding the lawn on your turn = you lose
+  const myLeft = countGroup(next.rows, groupOf(p));
+  const theirLeft = countGroup(next.rows, groupOf(1 - p));
+  let lowest = -1;
+  next.rows.forEach((row, r) => { if (row.some((v) => v != null)) lowest = r; });
+  if (myLeft === 0) { next.status = "duelend"; next.winner = p; events.push({ t: "duelend", winner: p }); return { run: next, events }; }
+  if (theirLeft === 0) { next.status = "duelend"; next.winner = 1 - p; events.push({ t: "duelend", winner: 1 - p }); return { run: next, events }; }
+  if (lowest >= DEAD_ROW) { next.status = "duelend"; next.winner = 1 - p; events.push({ t: "duelend", winner: 1 - p, flooded: true }); return { run: next, events }; }
+  // refresh the shooter's hand, then hand the sky to the other player
+  next.curs[p] = next.nexts[p];
+  const d = duelDraw(next, p);
+  next.nexts[p] = d.code;
+  next.bagIdx[p] = d.bagIdx;
+  next.turn = 1 - p;
+  next.cur = next.curs[next.turn]; next.next = next.nexts[next.turn];
+  events.push({ t: "turn", turn: next.turn });
+  return { run: next, events };
 }

@@ -32,6 +32,52 @@ const SHAPE_HUES = ["#ffd166", "#c4a6ff", "#cfe7f5", "#ffb4c8", "#f4c542", "#e84
 const themeFor = (seed, levelNo) => THEMES[G.hashStr(seed + ":theme:" + levelNo) % THEMES.length];
 const JOURNEY_SEED = "gq1";
 
+/* ---- 🔊 sound: a tiny synthesizer, no assets. Pops play an ascending
+   pentatonic run with your combo (the Peggle trick); everything else is short
+   plucks and noise taps. Muted state persists; AudioContext resumes lazily on
+   the first real gesture (iOS rule). ---- */
+const PENT = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25, 784.0, 880.0];
+const snd = {
+  ctx: null, muted: (() => { try { return localStorage.getItem("pp.gq.mute") === "1"; } catch { return false; } })(),
+  ensure() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch {} } if (this.ctx && this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); return this.ctx; },
+  tone(freq, dur = 0.18, type = "sine", vol = 0.16, when = 0) {
+    const ctx = this.muted ? null : this.ensure(); if (!ctx) return;
+    const t0 = ctx.currentTime + when;
+    const o = ctx.createOscillator(), g2 = ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g2.gain.setValueAtTime(0.0001, t0);
+    g2.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g2).connect(ctx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  },
+  noise(dur = 0.12, vol = 0.1, when = 0) {
+    const ctx = this.muted ? null : this.ensure(); if (!ctx) return;
+    const t0 = ctx.currentTime + when;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const g2 = ctx.createGain(); g2.gain.value = vol;
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 900;
+    src.connect(f).connect(g2).connect(ctx.destination);
+    src.start(t0);
+  },
+  pop(combo, size) { const base = Math.min(PENT.length - 1, (combo - 1) * 2); this.tone(PENT[base], 0.2, "triangle", 0.18); if (size >= 5) this.tone(PENT[Math.min(PENT.length - 1, base + 2)], 0.24, "triangle", 0.14, 0.06); },
+  thunk() { this.tone(120, 0.09, "sine", 0.12); },
+  bounce() { this.tone(660, 0.05, "square", 0.05); },
+  boom() { this.noise(0.3, 0.22); this.tone(70, 0.3, "sine", 0.2); },
+  fall() { this.tone(392, 0.1, "sine", 0.07); this.tone(293, 0.12, "sine", 0.07, 0.07); },
+  fever() { [0, 1, 2, 3].forEach((i) => this.tone(PENT[4 + i], 0.14, "triangle", 0.14, i * 0.07)); },
+  clear() { [0, 2, 4, 7].forEach((s2, i) => this.tone(PENT[s2], 0.3, "triangle", 0.16, i * 0.1)); },
+  clutch() { this.tone(196, 0.5, "sawtooth", 0.1); [4, 7, 9].forEach((s2, i) => this.tone(PENT[s2], 0.4, "triangle", 0.18, 0.18 + i * 0.12)); },
+  bossHit() { this.noise(0.16, 0.18); this.tone(150, 0.2, "square", 0.12); },
+  bossRoar() { this.tone(90, 0.7, "sawtooth", 0.16); this.tone(96, 0.7, "sawtooth", 0.12, 0.05); },
+  bossDown() { this.noise(0.5, 0.25); [0, 4, 7, 9].forEach((s2, i) => this.tone(PENT[s2], 0.5, "triangle", 0.18, 0.25 + i * 0.12)); },
+  dead() { this.tone(196, 0.4, "sine", 0.14); this.tone(146, 0.6, "sine", 0.14, 0.25); },
+};
+
 /* ---- sprites: bare emoji + soft drop shadow, pre-rendered (hot loop =
    drawImage; the shadow costs once at sprite build, never per frame) */
 function makeSprites(px, themeEmoji) {
@@ -58,34 +104,44 @@ function makeSprites(px, themeEmoji) {
 }
 
 /* ================= the playable surface (gamefs) ======================== */
-function GemPlay({ me, startLevel, onExit, onCleared }) {
-  const [levelNo, setLevelNo] = useState(startLevel);
-  const [phase, setPhase] = useState("play");        // play | cleared | dead
-  const [hud, setHud] = useState(null);              // {score, misses, moveEvery, cur, next, stars}
+function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
+  const [levelNo, setLevelNo] = useState(startLevel || 1);
+  const [phase, setPhase] = useState("play");        // play | cleared | dead | duelend
+  const [hud, setHud] = useState(null);              // {score, misses, moveEvery, cur, next, stars, warmLeft, coolLeft}
   const wrapRef = useRef(null), cvRef = useRef(null);
   const S = useRef(null);                            // ALL mutable game state (never re-render per frame)
 
   const [intro, setIntro] = useState(null);          // level intro card {title, sub}
   const [combo, setCombo] = useState(0);
+  const [fever, setFever] = useState(false);
+  const [bossUi, setBossUi] = useState(null);        // {hp, maxHp, exposed, hitN}
+  const [turn, setTurn] = useState(0);               // duel: whose sky it is
+  const [muted, setMuted] = useState(snd.muted);
+  const duelCounts = (rows) => ({
+    warmLeft: rows.flat().filter((v) => G.colorOf(v) != null && G.WARM.includes(G.colorOf(v))).length,
+    coolLeft: rows.flat().filter((v) => G.colorOf(v) != null && G.COOL.includes(G.colorOf(v))).length,
+  });
   const boot = useCallback((lvl) => {
-    const run = G.newRun(JOURNEY_SEED, lvl);
+    const run = duel ? G.newDuelRun(lvl) : G.newRun(JOURNEY_SEED, lvl);
     S.current = {
-      run, theme: themeFor(JOURNEY_SEED, lvl),
+      run, theme: duel ? THEMES[0] : themeFor(JOURNEY_SEED, lvl),   // duel = colored hearts: 🔥❤️💛🧡 vs ❄️💚💙💜
       display: run.rows.map((r) => r.slice()), drops: run.drops,
       queue: [], pending: null, anim: null, particles: [], falling: [],
-      trail: [], popups: [], jiggles: [], shake: 0, recoil: 0,
+      trail: [], popups: [], jiggles: [], shake: 0, recoil: 0, slowUntil: 0,
       aim: null, raf: 0, last: 0, watchdog: 0, sprites: null, scale: 1, offX: 0, dpr: 1,
       shotsUsed: 0, par: Math.round(run.rows.flat().filter((v) => v != null).length * 0.6) + 8,
     };
-    setHud({ score: 0, misses: 0, moveEvery: run.moveEvery, cur: run.cur, next: run.next });
-    setCombo(0);
+    setHud({ score: 0, misses: 0, moveEvery: run.moveEvery, cur: run.cur, next: run.next, ...(duel ? duelCounts(run.rows) : {}) });
+    setCombo(0); setFever(false); setTurn(0);
+    setBossUi(run.boss ? { hp: run.boss.hp, maxHp: run.boss.maxHp, exposed: false, hitN: 0 } : null);
     setPhase("play");
     const FORM = { rows: "", blob: "☁️ Cloudbank", ring: "⭕ The Ring", rope: "⛓ Hanging Chains", spiral: "🌀 The Spiral", heart: "💞 Heart of the Sky" };
-    const bits = [FORM[run.formation], run.shapeMode ? "🔷 Shape match" : "", run.stormy ? "⛈ The sky shoots back" : "", run.gift ? "🎁 Gift level" : "", ...run.mods].filter(Boolean);
-    setIntro({ title: `Level ${lvl}`, sub: bits.join(" · ") || "clear the sky" });
+    const bits = duel ? ["🔥 warm vs ❄️ cool — clear YOUR colors first"]
+      : [run.boss ? "⛈ BOSS: wound the storm with pops!" : FORM[run.formation], run.shapeMode ? "🔷 Shape match" : "", run.stormy ? "⛈ The sky shoots back" : "", run.gift ? "🎁 Gift level" : "", ...run.mods].filter(Boolean);
+    setIntro({ title: duel ? "Gem Duel ⚔️" : `Level ${lvl}`, sub: bits.join(" · ") || "clear the sky" });
     setTimeout(() => setIntro(null), 1900);
-  }, []);
-  useEffect(() => { boot(levelNo); }, []);           // eslint-disable-line
+  }, [duel]);
+  useEffect(() => { boot(duel ? ((Math.random() * 4294967296) >>> 0) : levelNo); }, []);   // eslint-disable-line
 
   /* ---- canvas sizing + sprites ---- */
   const fit = useCallback(() => {
@@ -215,6 +271,20 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill();
     }
     g.globalAlpha = 1;
+    // 😰 near-death drama: dark vignette + a worried bear when the swarm
+    // is within two rows of the lawn
+    let lowestNow = -1;
+    st.display.forEach((row, r) => { if (row.some((v) => v != null)) lowestNow = r; });
+    const danger = lowestNow >= 0 && lowestNow + st.drops >= G.DEAD_ROW - 2 && phaseRef.current === "play";
+    if (danger) {
+      const vg = g.createRadialGradient(G.WUNITS / 2, G.LAUNCH_Y / 2, G.WUNITS * 0.45, G.WUNITS / 2, G.LAUNCH_Y / 2, G.WUNITS * 1.05);
+      vg.addColorStop(0, "rgba(120,30,40,0)");
+      vg.addColorStop(1, "rgba(120,30,40,.32)");
+      g.fillStyle = vg;
+      g.fillRect(0, 0, G.WUNITS, G.LAUNCH_Y + 4 * G.R);
+      g.font = `${1.3 * G.R}px system-ui`; g.textAlign = "center";
+      g.fillText("💦", G.WUNITS / 2 + 1.8 * G.R, G.LAUNCH_Y + 0.4 * G.R);
+    }
     // floating score popups
     g.textAlign = "center";
     for (const pu of st.popups) {
@@ -236,8 +306,9 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
     g.fillText((me && me.emoji) || "💗", lx, ly + 2.6 * G.R);
   }, [me]);
 
-  // phase in a ref so draw() (stable) can read it
+  // phase/fever in refs so draw()/tick() (stable) can read them
   const phaseRef = useRef(phase); phaseRef.current = phase;
+  const feverRef = useRef(fever); feverRef.current = fever;
 
   /* ---- animation playback of engine events ---- */
   const FLY_SPEED = 34;                              // units per ms
@@ -249,20 +320,26 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
     st.display = run.rows.map((r) => r.slice());
     st.drops = run.drops;
     st.particles = []; st.falling = [];
-    setHud({ score: run.score, misses: run.misses, moveEvery: run.moveEvery, cur: run.cur, next: run.next });
+    setHud({ score: run.mode === "duel" ? run.scores[0] + run.scores[1] : run.score, misses: run.misses, moveEvery: run.moveEvery, cur: run.cur, next: run.next, ...(run.mode === "duel" ? duelCounts(run.rows) : {}) });
     setCombo(run.combo >= 2 ? run.combo : 0);
+    if (run.combo < 2) setFever(false);
+    if (run.boss) setBossUi((b) => ({ hp: run.boss.hp, maxHp: run.boss.maxHp, exposed: run.boss.exposed, hitN: (b ? b.hitN : 0) }));
+    if (run.mode === "duel") setTurn(run.turn);
     if (run.status === "cleared") {
       const stars = st.shotsUsed <= st.par * 0.7 ? 3 : st.shotsUsed <= st.par * 1.15 ? 2 : 1;
       setPhase("cleared");
       setHud((h0) => ({ ...h0, stars }));
       onCleared && onCleared(st.run.levelNo, stars, run.score);
-    } else if (run.status === "dead") setPhase("dead");
+    } else if (run.status === "dead") { snd.dead(); setPhase("dead"); }
+    else if (run.status === "duelend") setPhase("duelend");
     draw();
   }, [draw, onCleared]);
 
   const tick = useCallback((now) => {
     const st = S.current; if (!st) return;
-    const dt = Math.min(48, now - (st.last || now)); st.last = now;
+    let dt = Math.min(48, now - (st.last || now)); st.last = now;
+    // fever + final-clear play in dramatic slow motion
+    if (feverRef.current || now < st.slowUntil) dt *= 0.55;
     let busy = false;
     const a = st.anim;
     if (a) {
@@ -282,6 +359,7 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
             for (let i = 0; i < 6 && st.particles.length < 160; i++)
               st.particles.push({ x: path[seg].x, y: path[seg].y, vx: (Math.random() - 0.5) * G.R / 20, vy: (Math.random() - 0.5) * G.R / 20, r: G.R * 0.12, life: 240, life0: 240, color: "#fff" });
             st.shake = Math.max(st.shake, 2);
+            snd.bounce();
           }
         }
         a.fly.seg = seg; a.fly.t = t;
@@ -344,6 +422,7 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       G.neighbors(ev.r, ev.c).forEach(([rr, cc]) => {
         if (rr >= 0 && st.display[rr] && st.display[rr][cc] != null) st.jiggles.push({ r: rr, c: cc, t: 0 });
       });
+      snd.thunk();
       st.anim = { wait: 40 };
     }
     else if (ev.t === "pop") {
@@ -362,6 +441,7 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       const cy = ev.cells.reduce((s2, [r]) => s2 + G.cellY(r), 0) / ev.cells.length + yOff;
       st.popups.push({ x: cx, y: cy, txt: "+" + ev.pts, t: 0 });
       if (ev.cells.length >= 5) st.shake = Math.max(st.shake, 3 + Math.min(5, ev.cells.length - 4));
+      snd.pop((st.pending && st.pending.combo) || 1, ev.cells.length);
       st.anim = { wait: 140 };
     }
     else if (ev.t === "fall") {
@@ -370,6 +450,7 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
         if (st.display[r]) st.display[r][c] = null;
         st.falling.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vy: G.R / 40, code: code || "0" });
       }
+      snd.fall();
       st.anim = { wait: 120 };
     }
     else if (ev.t === "descend") { st.drops = ev.drops; st.anim = { wait: 200 }; }
@@ -393,6 +474,7 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       const by = ev.cells.reduce((s2, [r]) => s2 + G.cellY(r), 0) / ev.cells.length + yOff;
       st.popups.push({ x: bx, y: by, txt: "+" + ev.pts, t: 0, color: "#cf4a63" });
       st.shake = Math.max(st.shake, 7);
+      snd.boom();
       st.anim = { wait: 200 };
     }
     else if (ev.t === "heartpop") {
@@ -427,17 +509,70 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
       st.driftFx = { dir: ev.dir, t: 0, dur: 240 };
       st.anim = { wait: 250 };
     }
-    else st.anim = { wait: 10 };                     // next / clear / dead — HUD updates at finish
+    else if (ev.t === "clear") {
+      // 🎆 the last-shot moment: slow motion + fireworks across the sky
+      st.slowUntil = performance.now() + 900;
+      const hues = st.run.shapeMode ? SHAPE_HUES : st.theme.hues;
+      for (let b = 0; b < 3; b++) {
+        const fx = G.WUNITS * (0.25 + b * 0.25), fy = G.ROWH * (2 + (b % 2) * 2.5);
+        for (let i = 0; i < 26 && st.particles.length < 220; i++) {
+          const ang = (i / 26) * Math.PI * 2;
+          st.particles.push({ x: fx, y: fy, vx: Math.cos(ang) * G.R / 18, vy: Math.sin(ang) * G.R / 18, r: G.R * 0.16, life: 800 + b * 120, life0: 800 + b * 120, color: hues[(i + b) % hues.length] });
+        }
+      }
+      if (ev.clutch) { st.popups.push({ x: G.WUNITS / 2, y: G.ROWH * 5, txt: "CLUTCH! +500", t: 0, color: "#cf4a63" }); snd.clutch(); }
+      else snd.clear();
+      st.shake = Math.max(st.shake, 5);
+      st.anim = { wait: 900 };
+    }
+    else if (ev.t === "bossHit") {
+      snd.bossHit();
+      st.shake = Math.max(st.shake, 6);
+      st.popups.push({ x: G.WUNITS / 2, y: G.ROWH * 1.4, txt: `-${ev.dmg}`, t: 0, color: "#cf4a63" });
+      setBossUi((b) => (b ? { ...b, hp: ev.hp, exposed: false, hitN: b.hitN + 1 } : b));
+      st.anim = { wait: 160 };
+    }
+    else if (ev.t === "bossExposed") {
+      snd.bossRoar();
+      st.popups.push({ x: G.WUNITS / 2, y: G.ROWH * 2, txt: "NOW! Hit it!", t: 0, color: "#cf4a63" });
+      setBossUi((b) => (b ? { ...b, exposed: true } : b));
+      st.anim = { wait: 260 };
+    }
+    else if (ev.t === "bossShield") {
+      for (const [r, c] of ev.cells) {
+        if (st.display[r]) st.display[r][c] = "S";
+        st.jiggles.push({ r, c, t: 0 });
+        for (let i = 0; i < 6 && st.particles.length < 200; i++)
+          st.particles.push({ x: G.cellX(r, c), y: G.cellY(r) + yOff, vx: (Math.random() - 0.5) * G.R / 26, vy: (Math.random() - 0.5) * G.R / 26, r: G.R * 0.12, life: 320, life0: 320, color: "#a9a29a" });
+      }
+      st.anim = { wait: 220 };
+    }
+    else if (ev.t === "bossDown") {
+      snd.bossDown();
+      st.slowUntil = performance.now() + 1000;
+      st.shake = Math.max(st.shake, 10);
+      st.popups.push({ x: G.WUNITS / 2, y: G.ROWH * 3, txt: "STORM BROKEN! +1500", t: 0, color: "#cf4a63" });
+      for (let i = 0; i < 40 && st.particles.length < 220; i++) {
+        const ang = (i / 40) * Math.PI * 2;
+        st.particles.push({ x: G.WUNITS / 2, y: G.ROWH * 1.5, vx: Math.cos(ang) * G.R / 14, vy: Math.sin(ang) * G.R / 14, r: G.R * 0.2, life: 900, life0: 900, color: i % 2 ? "#ffd166" : "#cfe7f5" });
+      }
+      st.anim = { wait: 1000 };
+    }
+    else if (ev.t === "duelend") st.anim = { wait: 300 };
+    else st.anim = { wait: 10 };                     // next / turn / dead — HUD updates at finish
   }, []);
 
   const fire = useCallback((angleMil) => {
     const st = S.current;
     if (!st || st.anim || st.pending || phaseRef.current !== "play") return;
+    snd.ensure();                                    // first gesture unlocks audio (iOS)
     const { run, events } = G.applyShot(st.run, { t: "shot", a: angleMil });
     st.pending = run;
     st.shotsUsed++;
     st.recoil = 1;
     st.trail = [];
+    // 🔥 FEVER: chain 4+ combos and the sky goes golden slow-mo
+    if (run.combo >= 4 && !feverRef.current) { setFever(true); snd.fever(); }
     // hand + next-chip update IMMEDIATELY (score/pips settle when the play
     // animation lands) — nothing in the bear's hand ever changes late
     setHud((h0) => ({ ...h0, cur: run.cur, next: run.next }));
@@ -515,14 +650,26 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
   const retry = () => { boot(levelNo); setTimeout(fit, 30); };
 
   const pips = hud ? Math.max(0, hud.moveEvery - hud.misses) : 0;
-  return html`<div class="gamefs gemfs">
+  const duelP = duel && (turn === 0 ? duel.p0 : duel.p1);
+  return html`<div class=${`gamefs gemfs ${fever ? "fever" : ""}`}>
     <div class="gamefs-bar">
       <button class="iconbtn" onClick=${() => onExit(levelNo)}>✕</button>
-      <div class="gemfs-title">💎 Level ${levelNo}</div>
+      <div class="gemfs-title">${duel ? "⚔️ Gem Duel" : `💎 Level ${levelNo}`}</div>
+      <button class="iconbtn" onClick=${() => { snd.muted = !snd.muted; try { localStorage.setItem("pp.gq.mute", snd.muted ? "1" : "0"); } catch {} setMuted(snd.muted); }}>${muted ? "🔇" : "🔊"}</button>
       <div class="gemfs-score tnum">${hud ? hud.score : 0}</div>
     </div>
+    ${bossUi && html`<div class=${`gemfs-boss ${bossUi.exposed ? "exposed" : ""}`} key=${"hit" + bossUi.hitN}>
+      <span class="gemfs-boss-face">⛈️</span>
+      <span class="gemfs-boss-hp">${"❤️".repeat(bossUi.hp)}${"🖤".repeat(Math.max(0, bossUi.maxHp - bossUi.hp))}</span>
+      ${bossUi.exposed && html`<span class="gemfs-boss-now">weak spot open!</span>`}
+    </div>`}
+    ${duel && html`<div class=${`gemfs-turnbar ${turn === 0 ? "warm" : "cool"}`}>
+      <span class="gemfs-turn-who">${duelP.emoji} ${duelP.name}'s shot</span>
+      <span class="gemfs-turn-side">${turn === 0 ? "🔥 warm" : "❄️ cool"}</span>
+      <span class="gemfs-turn-counts tnum">🔥 ${hud ? hud.warmLeft : 0} · ❄️ ${hud ? hud.coolLeft : 0}</span>
+    </div>`}
     <div class="gemfs-hud">
-      <span class="gemfs-pips">${Array.from({ length: hud ? hud.moveEvery : 0 }, (_, i) => html`<i key=${i} class=${i < pips ? "on" : ""}></i>`)}</span>
+      <span class="gemfs-pips">${hud && hud.moveEvery < 99 ? Array.from({ length: hud.moveEvery }, (_, i) => html`<i key=${i} class=${i < pips ? "on" : ""}></i>`) : ""}</span>
       ${S.current && S.current.run.mods.length > 0 && html`<span class="gemfs-mods">${S.current.run.mods.map((m) => html`<em key=${m}>${m}</em>`)}</span>`}
       <button class="gemfs-next" onClick=${swap} title="Swap">
         next <span class="gememoji">${(() => {
@@ -552,6 +699,15 @@ function GemPlay({ me, startLevel, onExit, onCleared }) {
         <button class="btn" onClick=${retry}>Try again</button>
         <button class="linkbtn" onClick=${() => onExit(levelNo)}>Back to the castle</button>
       </div>`}
+      ${phase === "duelend" && duel && (() => {
+        const w = S.current.run.winner === 0 ? duel.p0 : duel.p1;
+        return html`<div class="gemfs-over">
+          <div class="gemfs-big">${w.emoji} ${w.name} takes the sky!</div>
+          <div class="gemfs-stars">${S.current.run.winner === 0 ? "🔥" : "❄️"}</div>
+          <div class="tnum" style="font-size:16px">🔥 ${S.current.run.scores[0]} · ❄️ ${S.current.run.scores[1]}</div>
+          <button class="btn" onClick=${() => { boot((Math.random() * 4294967296) >>> 0); setTimeout(fit, 30); }}>Rematch ⚔️</button>
+          <button class="linkbtn" onClick=${() => onExit(levelNo)}>Back to the castle</button>
+        </div>`; })()}
     </div>
     <div class="gemfs-lawn"></div>
   </div>`;
@@ -563,6 +719,8 @@ export function GemQuestCard({ client, me, players, flash }) {
   const [prog, setProg] = useState(null);            // all gem_progress rows
   const [playing, setPlaying] = useState(null);      // null | {level}
   const [mapOpen, setMapOpen] = useState(false);
+  const [duelSetup, setDuelSetup] = useState(false);
+  const [dueling, setDueling] = useState(null);      // {p0, p1} — p0 is warm 🔥
 
   const load = useCallback(async () => {
     const { data } = await client.from("gem_progress").select("*").order("level");
@@ -607,6 +765,9 @@ export function GemQuestCard({ client, me, players, flash }) {
     } catch {}
   }, [client, me.id, load, flash]);
 
+  if (dueling) return html`<${GemPlay} me=${me} duel=${dueling}
+    onExit=${() => setDueling(null)} />`;
+
   if (playing) return html`<${GemPlay} me=${me} startLevel=${playing.level}
     onCleared=${saveClear}
     onExit=${() => { setPlaying(null); load(); }} />`;
@@ -621,9 +782,21 @@ export function GemQuestCard({ client, me, players, flash }) {
     <div class="gamehero-meta tnum">
       ${myBest ? `best ${myBest}` : "a new journey"}${partner && theirLevel ? ` · ${partner.emoji} is on ${theirLevel + 1}` : ""}
     </div>
-    <div class="row" style="gap:10px; justify-content:center">
+    <div class="row" style="gap:10px; justify-content:center; flex-wrap:wrap">
       <button class="btn gamehero-btn" onClick=${() => setPlaying({ level: myLevel })}>Play ▸</button>
       <button class="btn ghost" onClick=${() => setMapOpen(true)}>🗺 Journey</button>
+      ${partner && html`<button class="btn ghost" onClick=${() => setDuelSetup(true)}>⚔️ Duel</button>`}
     </div>
+    ${duelSetup && html`<div class="modal-bg asheet" onClick=${(e) => { if (e.target.classList.contains("modal-bg")) setDuelSetup(false); }}>
+      <div class="modal" onClick=${(e) => e.stopPropagation()}>
+        <div class="handle"></div>
+        <div class="eyebrow" style="margin-bottom:6px">⚔️ gem duel — pass the phone</div>
+        <p class="sub" style="margin-bottom:12px">One sky, alternating shots. Clear <b>your</b> colors first — and wall theirs in. Who takes 🔥 warm (❤️💛🧡)? The other gets ❄️ cool (💚💙💜).</p>
+        <div class="row" style="gap:10px">
+          <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: me, p1: partner }); }}>🔥 ${me.emoji} ${me.name}</button>
+          <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: partner, p1: me }); }}>🔥 ${partner.emoji} ${partner.name}</button>
+        </div>
+      </div>
+    </div>`}
   </div>`;
 }
