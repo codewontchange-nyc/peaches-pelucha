@@ -75,18 +75,18 @@ const snd = {
     src.connect(f).connect(g2).connect(ctx.destination);
     src.start(t0);
   },
-  // 🎱 pool acoustics: bright ball-on-ball CLACK, dull cushion thud, and a
-  // descending rattle as balls drop into the pocket
-  clack(vol = 0.26, when = 0) {
-    this.noise(0.04, vol, when, 2600, "highpass");
-    this.tone(1700, 0.035, "triangle", vol * 0.5, when);
-    this.tone(190, 0.05, "sine", vol * 0.55, when);
+  // 🎱 pool acoustics via MODAL synthesis: a resin ball click is a handful of
+  // pure high partials dying in ~40ms — no noise (noise = static = annoying).
+  // Everything short, quiet, and round.
+  clack(vol = 0.13, when = 0) {
+    [[2600, 0.5], [3950, 0.3], [5300, 0.18]].forEach(([f, a]) => this.tone(f, 0.045, "sine", vol * a, when));
+    this.tone(165, 0.035, "sine", vol * 0.7, when);       // the body of the hit
   },
-  cushion() { this.noise(0.07, 0.16, 0, 520); this.tone(130, 0.06, "sine", 0.12); },
+  cushion() { this.tone(110, 0.08, "sine", 0.1); },       // one soft felt thump
   pocket(n = 3) {
-    for (let i = 0; i < Math.min(4, n); i++) this.clack(0.2 - i * 0.035, i * 0.07);
-    this.tone(85, 0.3, "sine", 0.16, 0.05);
-    this.noise(0.28, 0.1, 0.1, 300);
+    this.clack(0.11);
+    if (n >= 4) this.clack(0.07, 0.09);                   // big drops get one echo, not a rattle
+    this.tone(78, 0.2, "sine", 0.1, 0.05);                // roll into the pocket
   },
   pop(combo, size) { const base = Math.min(PENT.length - 1, (combo - 1) * 2); this.tone(PENT[base], 0.2, "triangle", 0.18); if (size >= 5) this.tone(PENT[Math.min(PENT.length - 1, base + 2)], 0.24, "triangle", 0.14, 0.06); },
   thunk() { this.tone(120, 0.09, "sine", 0.12); },
