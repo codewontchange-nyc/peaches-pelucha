@@ -1732,6 +1732,14 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .gemfs-next { border: 1px solid rgba(217,161,115,.5); background: rgba(255,255,255,.72); color: #8a5a44;
   border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px; }
+/* 🎯 the ammo chip — armed state glows terracotta so the next shot reads hot */
+.gemfs-ammo { border: 1px solid rgba(217,161,115,.5); background: rgba(255,255,255,.72); color: #8a5a44;
+  border-radius: 999px; padding: 5px 11px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.gemfs-ammo.on { background: #c15f3c; border-color: #c15f3c; color: #fdf6e3;
+  box-shadow: 0 0 0 3px rgba(193,95,60,.25); animation: ammopulse 1.2s ease-in-out infinite; }
+.gemfs-ammo:disabled { opacity: .55; cursor: default; }
+@keyframes ammopulse { 50% { box-shadow: 0 0 0 6px rgba(193,95,60,.12); } }
+@media (prefers-reduced-motion: reduce) { .gemfs-ammo.on { animation: none; } }
 .gemdot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; box-shadow: inset 0 -2px 3px rgba(0,0,0,.18); }
 .gemfs-stage { position: relative; flex: 1; min-height: 0; max-width: var(--maxw); width: 100%; margin: 0 auto; }
 .gemfs-stage canvas { display: block; touch-action: none; }

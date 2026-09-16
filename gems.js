@@ -280,19 +280,19 @@ export function simulateFlight(rows, drops, angleMil, phys) {
     else if (x > wallR) { x = 2 * wallR - x; vx = -vx; path.push({ x: wallR, y }); bounces.push(path.length - 1); }
     else if (curved && i % 4 === 0) path.push({ x, y });   // dense samples so arcs draw smoothly
     // a lobbed shot that arcs back down past the launcher is simply lost
-    if (vy > 0 && y > LAUNCH_Y + R) { path.push({ x, y }); return { path, bounces, landing: null }; }
+    if (vy > 0 && y > LAUNCH_Y + R) { path.push({ x, y }); return { path, bounces, hit: null, landing: null }; }
     // ceiling
-    if (y <= yOff + R) { y = yOff + R; path.push({ x, y }); return { path, bounces, landing: snapCell(rows, x, y - yOff, null) }; }
+    if (y <= yOff + R) { y = yOff + R; path.push({ x, y }); return { path, bounces, hit: null, landing: snapCell(rows, x, y - yOff, null) }; }
     for (const [ox, oy, r, c] of occ) {
       const ddx = x - ox, ddy = y - oy;
       if (ddx * ddx + ddy * ddy < hitDist2) {
         path.push({ x, y });
-        return { path, bounces, landing: snapCell(rows, x, y - yOff, [r, c]) };
+        return { path, bounces, hit: [r, c], landing: snapCell(rows, x, y - yOff, [r, c]) };
       }
     }
   }
   path.push({ x, y });
-  return { path, bounces, landing: null };
+  return { path, bounces, hit: null, landing: null };
 }
 
 // nearest empty valid cell to (x, y in board space); prefer neighbors of the
@@ -365,6 +365,35 @@ export function applyShot(run, action) {
     return { run: next, events: [{ t: "swap" }] };
   }
   if (action.t !== "shot") return { run, events: [] };
+
+  // 🎯 AMMO pellet: doesn't stick — it DESTROYS the first thing it hits.
+  // Bombs are defused (no blast), stones shatter, cages open empty; anything
+  // cut loose falls for points. Costs no gem from the bag, ticks no miss,
+  // feeds no swarm/boss/storm (shotIdx untouched keeps every stream aligned).
+  // A pellet that hits nothing leaves the run untouched — not spent.
+  if (action.ammo) {
+    const flight = simulateFlight(next.rows, next.drops, action.a, next.phys);
+    events.push({ t: "fly", path: flight.path, bounces: flight.bounces, code: "P" });
+    if (!flight.hit) { events.push({ t: "zapmiss" }); return { run, events }; }
+    const [zr, zc] = flight.hit;
+    const zapped = next.rows[zr][zc];
+    next.rows[zr][zc] = null;
+    events.push({ t: "zap", r: zr, c: zc, code: zapped });
+    const orphans = findOrphans(next.rows);
+    if (orphans.length) {
+      orphans.forEach(([r, c]) => { next.rows[r][c] = null; });
+      const fp = orphans.length * 20;
+      next.score += fp;
+      events.push({ t: "fall", cells: orphans, pts: fp });
+    }
+    if (!next.rows.some((row) => row.some((v) => v != null))) {
+      next.status = "cleared";
+      next.score += 250;
+      events.push({ t: "clear", score: next.score, clutch: false });
+    }
+    return { run: next, events };
+  }
+
   // remember whether we were one breath from death — clearing from here is a CLUTCH
   let lowestBefore = -1;
   next.rows.forEach((row, r) => { if (row.some((v) => v != null)) lowestBefore = r; });
@@ -720,7 +749,7 @@ export function newDuelRun(seed) {
     mode: "duel", seed, levelNo: 1, palette: 6, rows, turn: 0,
     bagIdx: [0, 0], curs: [null, null], nexts: [null, null],
     cur: null, next: null, shotIdx: 0, misses: 0, drops: 0, moveEvery: 99,
-    combo: 0, score: 0, scores: [0, 0], status: "playing", winner: null,
+    combo: 0, score: 0, scores: [0, 0], status: "playing", winner: null, ammo: [1, 1],
     shapeMode: false, formation: "duel", stormy: false, gift: false,
     mods: [], phys: { grav: 0, wind: 0, inset: 0 }, fog: false,
   };
@@ -743,6 +772,47 @@ function applyDuelShot(run, action) {
     return { run: next, events: [{ t: "swap" }] };
   }
   if (action.t !== "shot") return { run, events: [] };
+
+  // 🎯 each side packs ONE pellet per rack: it knocks out whatever ball it
+  // hits — even the 🎱, penalty-free on a DIRECT hit (orphaning it is still
+  // on you). The shooter keeps their held ball but the turn is spent; a
+  // pellet that hits nothing spends neither.
+  if (action.ammo && next.ammo[p] > 0) {
+    const flight = simulateFlight(next.rows, next.drops, action.a, next.phys);
+    events.push({ t: "fly", path: flight.path, bounces: flight.bounces, code: "P" });
+    if (!flight.hit) { events.push({ t: "zapmiss" }); return { run, events }; }
+    next.ammo = next.ammo.slice(); next.ammo[p]--;
+    const [zr, zc] = flight.hit;
+    const zapped = next.rows[zr][zc];
+    next.rows[zr][zc] = null;
+    events.push({ t: "zap", r: zr, c: zc, code: zapped });
+    let eight = null;
+    const orphans = findOrphans(next.rows);
+    if (orphans.length) {
+      const kept = [];
+      for (const [r, c] of orphans) {
+        if (next.rows[r][c] === EIGHT) { eight = [r, c]; next.rows[r][c] = null; continue; }
+        kept.push([r, c]);
+        next.rows[r][c] = null;
+      }
+      if (kept.length) {
+        next.scores[p] += kept.length * 20;
+        events.push({ t: "fall", cells: kept, pts: kept.length * 20 });
+      }
+    }
+    if (eight) {
+      next.scores[p] -= 300;
+      events.push({ t: "eightball", by: p, r: eight[0], c: eight[1], pts: -300 });
+    }
+    const myLeft2 = countGroup(next.rows, groupOf(p));
+    const theirLeft2 = countGroup(next.rows, groupOf(1 - p));
+    if (myLeft2 === 0) { next.status = "duelend"; next.winner = p; events.push({ t: "duelend", winner: p }); return { run: next, events }; }
+    if (theirLeft2 === 0) { next.status = "duelend"; next.winner = 1 - p; events.push({ t: "duelend", winner: 1 - p }); return { run: next, events }; }
+    next.turn = 1 - p;
+    next.cur = next.curs[next.turn]; next.next = next.nexts[next.turn];
+    events.push({ t: "turn", turn: next.turn });
+    return { run: next, events };
+  }
 
   const flight = simulateFlight(next.rows, next.drops, action.a, next.phys);
   events.push({ t: "fly", path: flight.path, bounces: flight.bounces, code: next.curs[p] });

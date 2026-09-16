@@ -135,6 +135,7 @@ const snd = {
     this.tone(78, 0.2, "sine", 0.1, 0.05);
   },
   pop(combo, size) { const base = Math.min(PENT.length - 1, (combo - 1) * 2); this.tone(PENT[base], 0.2, "triangle", 0.18); if (size >= 5) this.tone(PENT[Math.min(PENT.length - 1, base + 2)], 0.24, "triangle", 0.14, 0.06); },
+  zap() { if (this.sample("hit", { vol: 0.55, rate: 1.35 })) return; this.tone(2400, 0.05, "square", 0.1); this.tone(96, 0.09, "sine", 0.14, 0.01); },
   thunk() { this.tone(120, 0.09, "sine", 0.12); },
   bounce() { this.tone(660, 0.05, "square", 0.05); },
   boom() { this.noise(0.3, 0.22); this.tone(70, 0.3, "sine", 0.2); },
@@ -190,11 +191,55 @@ function makeSprites(px, themeEmoji) {
   });
   const pool = {};
   for (const code of Object.keys(POOL)) pool[code] = poolBall(POOL[code]);
+  // 🎯 the ammo pellet: a small dark slug with a shine — reads as "not a gem"
+  const pellet = mk((g, r) => {
+    g.shadowColor = "rgba(43,37,33,.4)"; g.shadowBlur = px * 0.08; g.shadowOffsetY = px * 0.05;
+    g.beginPath(); g.arc(r, r, r * 0.44, 0, Math.PI * 2);
+    g.fillStyle = "#3a3f47"; g.fill();
+    g.shadowColor = "transparent";
+    g.lineWidth = Math.max(1.5, px * 0.03); g.strokeStyle = "#c15f3c";
+    g.beginPath(); g.arc(r, r, r * 0.44, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(r * 0.85, r * 0.82, r * 0.12, 0, Math.PI * 2);
+    g.fillStyle = "rgba(255,255,255,.75)"; g.fill();
+  });
   return {
-    colors, shapes, cage, pool,
+    colors, shapes, cage, pool, pellet,
     stone: glyph("🪨"), bomb: glyph("💣"), star: glyph("⭐"), rainbow: glyph("🌈"),
     ice: glyph("🧊"), heart: glyph("💗"), crown: glyph("👑"),
   };
+}
+
+/* 🎯 journey ammo: pellets charge over time on this phone — +1 every 6h up
+   to 3 (starts with 1). A couple's consumable: lost localStorage just means
+   a free refill, never a wipeout. Duel ammo lives in the run itself. */
+const AMMO_CAP = 3, AMMO_REGEN_MS = 6 * 3600 * 1000;
+function ammoRead() {
+  try {
+    let s = JSON.parse(localStorage.getItem("pp.gq.ammo") || "null");
+    if (!s || typeof s.n !== "number") s = { n: 1, t: Date.now() };
+    while (s.n < AMMO_CAP && Date.now() - s.t >= AMMO_REGEN_MS) { s.n++; s.t += AMMO_REGEN_MS; }
+    if (s.n >= AMMO_CAP) { s.n = AMMO_CAP; s.t = Date.now(); }
+    localStorage.setItem("pp.gq.ammo", JSON.stringify(s));
+    return s.n;
+  } catch { return 1; }
+}
+function ammoSpend() {
+  try {
+    const s = JSON.parse(localStorage.getItem("pp.gq.ammo") || "null") || { n: 1, t: Date.now() };
+    const wasFull = s.n >= AMMO_CAP;
+    s.n = Math.max(0, s.n - 1);
+    if (wasFull) s.t = Date.now();               // the regen clock starts on leaving full
+    localStorage.setItem("pp.gq.ammo", JSON.stringify(s));
+    return s.n;
+  } catch { return 0; }
+}
+function ammoEta() {
+  try {
+    const s = JSON.parse(localStorage.getItem("pp.gq.ammo") || "null");
+    const ms = Math.max(0, AMMO_REGEN_MS - (Date.now() - ((s && s.t) || Date.now())));
+    const h = ms / 3600000;
+    return h >= 1 ? Math.ceil(h) + "h" : Math.max(1, Math.ceil(ms / 60000)) + "m";
+  } catch { return ""; }
 }
 
 /* ================= the playable surface (gamefs) ======================== */
@@ -211,6 +256,10 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
   const [bossUi, setBossUi] = useState(null);        // {hp, maxHp, exposed, hitN}
   const [turn, setTurn] = useState(0);               // duel: whose sky it is
   const [muted, setMuted] = useState(snd.muted);
+  const [ammo, setAmmo] = useState(() => (duel ? 1 : ammoRead()));   // journey stock (duel reads the run)
+  const [duelAmmo, setDuelAmmo] = useState([1, 1]);  // duel: pellets left per player
+  const [armed, setArmed] = useState(false);         // next shot is the 🎯 pellet
+  const armedRef = useRef(false); armedRef.current = armed;
   const duelCounts = (rows) => ({
     warmLeft: rows.flat().filter((v) => G.colorOf(v) != null && G.WARM.includes(G.colorOf(v))).length,
     coolLeft: rows.flat().filter((v) => G.colorOf(v) != null && G.COOL.includes(G.colorOf(v))).length,
@@ -227,11 +276,13 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
       shotsUsed: 0, par: Math.round(run.rows.flat().filter((v) => v != null).length * 0.6) + 8,
     };
     setHud({ score: 0, misses: 0, moveEvery: run.moveEvery, cur: run.cur, next: run.next, ...(duel ? duelCounts(run.rows) : {}) });
-    setCombo(0); setFever(false); setTurn(0);
+    setCombo(0); setFever(false); setTurn(0); setArmed(false);
+    setAmmo(duel ? 1 : ammoRead());
+    if (duel) setDuelAmmo([1, 1]);
     setBossUi(run.boss ? { hp: run.boss.hp, maxHp: run.boss.maxHp, exposed: false, hitN: 0 } : null);
     setPhase("play");
     const FORM = { rows: "", blob: "☁️ Cloudbank", ring: "⭕ The Ring", rope: "⛓ Hanging Chains", spiral: "🌀 The Spiral", heart: "💞 Heart of the Sky" };
-    const bits = duel ? ["● solids vs ◐ stripes — clear YOURS first, don't sink the 🎱"]
+    const bits = duel ? ["● solids vs ◐ stripes — don't sink the 🎱 · one 🎯 each"]
       : [run.boss ? "⛈ BOSS: wound the storm with pops!" : FORM[run.formation], run.shapeMode ? "🔷 Shape match" : "", run.stormy ? "⛈ The sky shoots back" : "", run.gift ? "🎁 Gift level" : "", ...run.mods].filter(Boolean);
     setIntro({ title: duel ? "Gem Duel ⚔️" : `Level ${lvl}`, sub: bits.join(" · ") || "clear the sky" });
     setTimeout(() => setIntro(null), 1900);
@@ -281,6 +332,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
     const sp = st.sprites;
     const shapeMode = st.run.shapeMode;
     const sprite = (code) => {
+      if (code === "P") return sp.pellet;
       if (st.run.mode === "duel") return sp.pool[code] || sp.pool["0"];
       if (code === "S") return sp.stone;
       if (code === "B") return sp.bomb;
@@ -325,7 +377,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
       const fl = G.simulateFlight(st.run.rows, st.run.drops, st.aim, phys);
       const pts = st.run.fog ? fl.path.slice(0, Math.max(3, Math.ceil(fl.path.length * 0.35))) : fl.path;
       g.setLineDash([160, 260]); g.lineWidth = 90;
-      g.strokeStyle = "rgba(138,90,68,.55)";
+      g.strokeStyle = armedRef.current ? "rgba(193,95,60,.8)" : "rgba(138,90,68,.55)";
       g.beginPath();
       pts.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
       g.stroke(); g.setLineDash([]);
@@ -396,7 +448,8 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
     // run) — what's in hand never changes after the fact.
     const held = (st.pending || st.run).cur;
     const lx = G.WUNITS / 2, ly = G.LAUNCH_Y + (st.recoil > 0 ? st.recoil * G.R * 0.5 : 0);
-    if (held != null) g.drawImage(sprite(held), lx - G.R, ly - G.R, px, px);
+    if (armedRef.current) g.drawImage(sp.pellet, lx - G.R, ly - G.R, px, px);
+    else if (held != null) g.drawImage(sprite(held), lx - G.R, ly - G.R, px, px);
     g.font = `${2.6 * G.R}px system-ui`;
     g.textAlign = "center";
     g.fillText((me && me.emoji) || "💗", lx, ly + 2.6 * G.R);
@@ -420,7 +473,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
     setCombo(run.combo >= 2 ? run.combo : 0);
     if (run.combo < 2) setFever(false);
     if (run.boss) setBossUi((b) => ({ hp: run.boss.hp, maxHp: run.boss.maxHp, exposed: run.boss.exposed, hitN: (b ? b.hitN : 0) }));
-    if (run.mode === "duel") setTurn(run.turn);
+    if (run.mode === "duel") { setTurn(run.turn); setDuelAmmo(run.ammo); }
     if (run.status === "cleared") {
       const stars = st.shotsUsed <= st.par * 0.7 ? 3 : st.shotsUsed <= st.par * 1.15 ? 2 : 1;
       setPhase("cleared");
@@ -545,6 +598,24 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
       if (st.run.mode === "duel") snd.pocket(ev.cells.length);
       else snd.pop((st.pending && st.pending.combo) || 1, ev.cells.length);
       st.anim = { wait: 140 };
+    }
+    else if (ev.t === "zap") {
+      // 🎯 the pellet knocks it out clean — no blast, no strings
+      if (st.display[ev.r]) st.display[ev.r][ev.c] = null;
+      for (let i = 0; i < 14 && st.particles.length < 200; i++) {
+        const ang = (i / 14) * Math.PI * 2;
+        st.particles.push({ x: G.cellX(ev.r, ev.c), y: G.cellY(ev.r) + yOff, vx: Math.cos(ang) * G.R / 20, vy: Math.sin(ang) * G.R / 20, r: G.R * 0.14, life: 460, life0: 460, color: i % 3 ? "#c15f3c" : "#fdfaf4" });
+      }
+      const label = ev.code === "B" ? "DEFUSED! 🎯" : ev.code === "E" ? "🎱 safe! 🎯" : ev.code === "S" ? "CRACKED! 🎯" : "🎯";
+      st.popups.push({ x: G.cellX(ev.r, ev.c), y: G.cellY(ev.r) + yOff, txt: label, t: 0, color: "#c15f3c" });
+      st.shake = Math.max(st.shake, 5);
+      snd.zap();
+      try { navigator.vibrate && navigator.vibrate(18); } catch {}
+      st.anim = { wait: 260 };
+    }
+    else if (ev.t === "zapmiss") {
+      st.popups.push({ x: G.WUNITS / 2, y: G.ROWH * 2, txt: "fizzle… 🎯 kept", t: 0, color: "#8a7a6d" });
+      st.anim = { wait: 200 };
     }
     else if (ev.t === "fall") {
       for (const [r, c] of ev.cells) {
@@ -681,9 +752,26 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
     const st = S.current;
     if (!st || st.anim || st.pending || phaseRef.current !== "play") return;
     snd.ensure();                                    // first gesture unlocks audio (iOS)
-    const { run, events } = G.applyShot(st.run, { t: "shot", a: angleMil });
+    // 🎯 armed = this shot is the pellet (the engine ignores the flag in a
+    // duel when that player's pellet is gone)
+    const wantAmmo = armedRef.current;
+    const { run, events } = G.applyShot(st.run, { t: "shot", a: angleMil, ...(wantAmmo ? { ammo: true } : {}) });
+    if (wantAmmo) {
+      if (events.some((e) => e.t === "zap")) {       // pellet landed: spend + disarm
+        setArmed(false);
+        if (!duel) setAmmo(ammoSpend());
+      } else if (events.some((e) => e.t === "zapmiss")) {
+        // fizzled into the sky — round kept, still armed; just play the arc
+        st.anim = null;
+        st.queue = events.slice();
+        nextEvent(); ensureRaf();
+        clearTimeout(st.watchdog);
+        st.watchdog = setTimeout(() => { const s2 = S.current; if (s2) { s2.queue = []; s2.anim = null; draw(); } }, 4200);
+        return;
+      }
+    }
     st.pending = run;
-    st.shotsUsed++;
+    if (!wantAmmo) st.shotsUsed++;                   // pellets never count against stars
     st.recoil = 1;
     st.trail = [];
     // 🔥 FEVER: chain 4+ combos and the sky goes golden slow-mo
@@ -762,6 +850,10 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
   }, [finishAnim]);
 
   useEffect(() => () => { const st = S.current; if (st) { cancelAnimationFrame(st.raf); clearTimeout(st.watchdog); } }, []);
+  // demo-only debug handle (tests inspect the live run)
+  useEffect(() => { if (location.search.includes("demo")) window.__gqS = S; }, []);
+  // the pellet appears in the bear's hand the moment 🎯 arms
+  useEffect(() => { if (S.current && S.current.sprites) draw(); }, [armed, draw]);
 
   const nextLevel = () => { const n = levelNo + 1; setLevelNo(n); boot(n); setTimeout(fit, 30); };
   const retry = () => { boot(levelNo); setTimeout(fit, 30); };
@@ -787,6 +879,14 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
     </div>`}
     <div class="gemfs-hud">
       <span class="gemfs-pips">${hud && hud.moveEvery < 99 ? Array.from({ length: hud.moveEvery }, (_, i) => html`<i key=${i} class=${i < pips ? "on" : ""}></i>`) : ""}</span>
+      ${(() => {
+        const n = duel ? duelAmmo[turn] : ammo;
+        return html`<button class=${`gemfs-ammo ${armed ? "on" : ""}`} disabled=${n <= 0}
+          title="ammo: knocks out whatever it hits"
+          onClick=${() => { if (n > 0) setArmed((v) => !v); }}>
+          🎯${n > 0 ? `×${n}` : duel ? " used" : ` ${ammoEta()}`}
+        </button>`;
+      })()}
       ${S.current && S.current.run.mods.length > 0 && html`<span class="gemfs-mods">${S.current.run.mods.map((m) => html`<em key=${m}>${m}</em>`)}</span>`}
       <button class="gemfs-next" onClick=${swap} title="Swap">
         next ${(() => {
@@ -926,7 +1026,7 @@ export function GemQuestCard({ client, me, players, flash }) {
       <div class="modal" onClick=${(e) => e.stopPropagation()}>
         <div class="handle"></div>
         <div class="eyebrow" style="margin-bottom:6px">🎱 gem duel — pass the phone</div>
-        <p class="sub" style="margin-bottom:12px">One rack, alternating shots. Clear <b>your</b> balls first — and wall theirs in. But mind the 🎱: whoever knocks the eight-ball loose eats <b>-300</b>. Winner takes <b>25 💗</b>. Who shoots ● solids? The other gets ◐ stripes.</p>
+        <p class="sub" style="margin-bottom:12px">One rack, alternating shots. Clear <b>your</b> balls first — and wall theirs in. But mind the 🎱: whoever knocks the eight-ball loose eats <b>-300</b>. Each side packs one <b>🎯 pellet</b> — it knocks out any single ball, even the 8-ball, penalty-free. Winner takes <b>25 💗</b>. Who shoots ● solids? The other gets ◐ stripes.</p>
         <div class="row" style="gap:10px">
           <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: me, p1: partner }); }}>● ${me.emoji} ${me.name}</button>
           <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: partner, p1: me }); }}>● ${partner.emoji} ${partner.name}</button>
