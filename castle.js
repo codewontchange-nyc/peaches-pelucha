@@ -1,5 +1,5 @@
 import { h } from "https://esm.sh/preact@10.23.2";
-import { useState, useRef, useEffect, useCallback } from "https://esm.sh/preact@10.23.2/hooks";
+import { useState, useRef, useEffect, useCallback, useMemo } from "https://esm.sh/preact@10.23.2/hooks";
 import htm from "https://esm.sh/htm@3.1.1";
 
 const html = htm.bind(h);
@@ -116,10 +116,77 @@ export function CastleHub({ me, balances, badges = {}, onEnter }) {
     style=${zoom ? `transform-origin:${zoom.ox}px ${zoom.oy}px` : ""}>
     <div class="castle-bg"></div>
     <${CastleSVG} opening=${opening} badges=${badges} onDoor=${onDoor} />
+    <${SkyLife} />
     <div class=${`hub-avatar ${walking ? "walking" : ""} ${opening ? "entering" : ""}`}
       style=${`left:${(pos.x / 390 * 100).toFixed(2)}%; top:${(pos.y / 720 * 100).toFixed(2)}%; transition-duration:${walking ? walkMs : 0}ms`}>
       <span style=${`transform:scaleX(${face})`}><i>${(me && me.emoji) || "💗"}</i></span>
     </div>
+  </div>`;
+}
+
+/* ---- sky life: clouds + birds ported from Collide's map, plus a hot-air
+   balloon and a kite in the same ink-outline style. Everything lives in the
+   band ABOVE the top row of windows (top ~24% of the scene), drifting across
+   on slow linear loops; negative delays populate the sky from first paint. */
+const rnd = (a, b) => a + Math.random() * (b - a);
+const CLOUD_PATH = "M24 62 C11 62 5 52 12 43 C6 33 18 26 28 32 C30 17 50 13 58 25 C65 11 89 13 90 31 C107 29 115 45 103 55 C109 64 96 67 88 63 C80 67 32 67 24 62 Z";
+
+function SkyLife() {
+  const clouds = useMemo(() => Array.from({ length: 3 }, () => {
+    const dur = rnd(85, 165);
+    return { top: `${rnd(1, 16).toFixed(1)}%`, width: `${rnd(9, 18).toFixed(1)}%`,
+      animationDuration: `${dur.toFixed(0)}s`, animationDelay: `-${rnd(0, dur).toFixed(0)}s`, opacity: rnd(0.68, 0.92).toFixed(2) };
+  }), []);
+  const birds = useMemo(() => {
+    const out = [];
+    for (let f = 0; f < 2; f++) {
+      const n = f === 0 ? 3 : 1 + Math.floor(Math.random() * 2);
+      const ltr = Math.random() < 0.5, dur = rnd(38, 72), delay = -rnd(0, dur);
+      const yy = rnd(3, 17), drift = rnd(-4, 4), sz = rnd(1.4, 2.1), dx = ltr ? 112 : -112;
+      for (let i = 0; i < n; i++) {
+        const off = i * sz * 0.9 * (ltr ? -1 : 1);
+        const vy = i === 0 ? 0 : (i % 2 ? -1 : 1) * Math.ceil(i / 2) * sz * 0.4;
+        const x0 = (ltr ? -6 : 106) + off;
+        out.push({ "--bx0": `${x0.toFixed(1)}%`, "--bx1": `${(x0 + dx).toFixed(1)}%`,
+          "--by0": `${(yy + vy).toFixed(1)}%`, "--by1": `${(yy + vy + drift).toFixed(1)}%`,
+          "--dur": `${dur.toFixed(0)}s`, "--delay": `${delay.toFixed(1)}s`,
+          "--flap": `${rnd(0.5, 0.85).toFixed(2)}s`, "--flapd": `-${rnd(0, 0.8).toFixed(2)}s`,
+          width: `${sz.toFixed(2)}%` });
+      }
+    }
+    return out;
+  }, []);
+  const balloon = useMemo(() => ({ top: `${rnd(2, 9).toFixed(1)}%`,
+    animationDuration: "150s", animationDelay: `-${rnd(0, 150).toFixed(0)}s` }), []);
+  const kite = useMemo(() => ({ top: `${rnd(8, 15).toFixed(1)}%`,
+    animationDuration: "95s", animationDelay: `-${rnd(0, 95).toFixed(0)}s` }), []);
+
+  return html`<div class="castle-sky" aria-hidden="true">
+    ${clouds.map((s, i) => html`<svg key=${`c${i}`} class="sky-cloud" style=${s} viewBox="0 0 120 74" fill="none">
+      <path d=${CLOUD_PATH} fill="#fff" stroke="#111" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+    </svg>`)}
+    ${birds.map((s, i) => html`<svg key=${`b${i}`} class="sky-bird" style=${s} viewBox="0 0 26 14">
+      <path class="w1" d="M2 10 Q8 2 13 8 Q18 2 24 10" />
+      <path class="w2" d="M2 6 Q8 10 13 7 Q18 10 24 6" />
+    </svg>`)}
+    <svg class="sky-balloon" style=${balloon} viewBox="0 0 60 84" fill="none">
+      <g class="bob">
+        <path d="M30 4 C13 4 6 18 6 30 C6 44 20 54 26 60 L34 60 C40 54 54 44 54 30 C54 18 47 4 30 4 Z"
+          fill="#ff8fa3" stroke="#111" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+        <path d="M22 5.5 C16 14 16 46 25 59 M38 5.5 C44 14 44 46 35 59" stroke="#cf4a63" stroke-width="2" fill="none" />
+        <path d="M26 60 L27 70 M34 60 L33 70" stroke="#111" stroke-width="2" />
+        <rect x="24" y="70" width="12" height="10" rx="2" fill="#e8c39e" stroke="#111" stroke-width="2.5" vector-effect="non-scaling-stroke" />
+      </g>
+    </svg>
+    <svg class="sky-kite" style=${kite} viewBox="0 0 60 92" fill="none">
+      <g class="sway">
+        <path d="M30 4 L52 30 L30 56 L8 30 Z" fill="#ffd166" stroke="#111" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+        <path d="M30 4 V56 M8 30 H52" stroke="#c9a227" stroke-width="1.6" />
+        <path d="M30 56 C36 66 24 74 30 88" stroke="#111" stroke-width="2" fill="none" />
+        <path d="M33 66 l6 -4 l-1 7 Z" fill="#ff8fa3" stroke="#111" stroke-width="1.6" />
+        <path d="M25 78 l-6 -3 l2 7 Z" fill="#c4a6ff" stroke="#111" stroke-width="1.6" />
+      </g>
+    </svg>
   </div>`;
 }
 
