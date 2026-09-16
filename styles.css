@@ -948,10 +948,12 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
    board must stay truly full-screen. */
 .swipe-wrap { position: relative; touch-action: pan-y; min-height: 60vh; overflow-x: clip; }
 .settling { opacity: 0; }
-.pane-from-r { animation: paneFromR .44s var(--ease-out); }
-.pane-from-l { animation: paneFromL .44s var(--ease-out); }
-@keyframes paneFromR { from { opacity: 0; transform: translateX(40px) scale(.984); } to { opacity: 1; transform: none; } }
-@keyframes paneFromL { from { opacity: 0; transform: translateX(-40px) scale(.984); } to { opacity: 1; transform: none; } }
+.pane-from-r { animation: paneFromR .5s var(--ease-out); transform-origin: 50% 18vh; }
+.pane-from-l { animation: paneFromL .5s var(--ease-out); transform-origin: 50% 18vh; }
+/* room entrance = the tail of the door-dive: the camera settles from a slight
+   zoom as you land inside (finite, ends transform:none — gamefs rule) */
+@keyframes paneFromR { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: none; } }
+@keyframes paneFromL { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: none; } }
 
 /* (the floating dock lived here — replaced by the castle hub, castle.js) */
 
@@ -1694,3 +1696,20 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .pane-from-r .card:nth-child(n+6), .pane-from-l .card:nth-child(n+6) { animation-delay: .3s; }
 @keyframes roomCard { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .pane-from-r .card, .pane-from-l .card { animation: none; } }
+
+/* the day-detail page is a clean read: the Reactions thread card hides while
+   a day is open (the Memories chrome above it already steps aside) */
+.app-shell.mem:has(.daydetail) .card.memthread { display: none; }
+
+/* 🚪→ portal entry: stepping through the door — the room settles from a slight
+   camera zoom while the player's icon shrinks away INTO the room, then fades.
+   One-shot on room mount (.swipe-wrap is keyed by room). */
+.portal-ava { position: fixed; left: 50%; top: 32vh; z-index: 20; pointer-events: none;
+  font-size: 44px; line-height: 1; filter: drop-shadow(0 4px 8px rgba(138,90,68,.35));
+  animation: portalIn .75s var(--ease-out) forwards; }
+@keyframes portalIn {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(1.9); }
+  14%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.3); }
+}
+@media (prefers-reduced-motion: reduce) { .portal-ava { display: none; } }

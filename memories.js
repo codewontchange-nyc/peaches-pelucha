@@ -913,14 +913,16 @@ export function MemoriesTab({ client, me, players = [], flash }) {
 
   return html`<div>
     <div class="card">
+      <!-- a day's detail page hides the Memories chrome (title + view toggle);
+           only that day's own actions (Select, Add-to-this-day) remain -->
       <div class="shead">
-        <h2>Memories</h2>
+        ${!openGroup && html`<h2>Memories</h2>`}
         <div class="shead-actions">
           ${sel ? html`<button class="btn sm" onClick=${() => setSel(null)}>Done</button>`
-          : html`<div class="seg" style="padding:3px">
+          : html`${!openGroup && html`<div class="seg" style="padding:3px">
             <button class=${view === "gallery" ? "on" : ""} onClick=${() => setView("gallery")}>Gallery</button>
             <button class=${view === "game" ? "on" : ""} onClick=${() => setView("game")}>Match</button>
-          </div>
+          </div>`}
           ${view === "gallery" && dayOpen && html`<button class="linkbtn micro" onClick=${() => setSel(new Set())}>Select</button>`}
           <button class="btn sm" disabled=${!!uploads} onClick=${() => fileInput.current && fileInput.current.click()}>
             ${uploads ? `${uploads.done}/${uploads.total}…` : "＋ Add"}

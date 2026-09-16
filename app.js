@@ -497,6 +497,7 @@ function App({ client, onResetCreds }) {
                          plans: rsvpNeeded ? "💌" : null, schmoney: giftsToDeliver ? "🎁" : null }} />
           </div>`
         : html`<div class="swipe-wrap" key=${tab}>
+            <div class="portal-ava" aria-hidden="true">${me.emoji}</div>
             <${Settle} dir=${1} key=${tab}>
             <${ErrorBoundary} key=${tab}>
               ${tab === "gameroom" && html`<${GameRoom} ...${ctx} />`}
