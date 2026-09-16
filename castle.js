@@ -241,6 +241,7 @@ function Shouts({ client, players }) {
       const b = box.getBoundingClientRect();
       const lb = l.getBoundingClientRect(), rb = r2.getBoundingClientRect();
       setAnchors({
+        w: b.width,
         l: { x: lb.left + lb.width / 2 - b.left, y: lb.top - b.top },
         r: { x: rb.left + rb.width / 2 - b.left, y: rb.top - b.top },
       });
@@ -262,7 +263,9 @@ function Shouts({ client, players }) {
   if (!bubbles.some(Boolean)) return null;
   return html`<div class="shouts" aria-hidden="true" ref=${boxRef}>
     ${bubbles.map((b) => b && anchors && html`<div key=${b.key} class=${`shout ${b.side ? "right" : "left"} ${b.side === active ? "loud" : "quiet"}`}
-      style=${`left:${(b.side ? anchors.r : anchors.l).x.toFixed(1)}px; top:${((b.side ? anchors.r : anchors.l).y + 6).toFixed(1)}px`}>
+      style=${b.side
+        ? `right:12px; top:${(anchors.r.y + 6).toFixed(1)}px; --tailr:${Math.max(10, anchors.w - 12 - anchors.r.x).toFixed(1)}px`
+        : `left:12px; top:${(anchors.l.y + 6).toFixed(1)}px; --tailx:${Math.max(10, anchors.l.x - 12).toFixed(1)}px`}>
       <span class="shout-emoji">${b.emoji}</span>
       <span class="shout-text">“${b.text}”</span>
     </div>`)}

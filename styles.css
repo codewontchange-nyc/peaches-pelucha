@@ -1768,6 +1768,29 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .gemmap-lawn { position: absolute; left: 0; right: 0; bottom: 0; height: 46px;
   background: #cdeac0; border-top: 3px solid #7fb069; }
 @media (prefers-reduced-motion: reduce) { .gemstop.now, .gemstop-partner { animation: none; } }
+.gemstop-score { position: absolute; left: 50%; transform: translateX(-50%); bottom: -30px;
+  font-size: 10px; color: #fdf6e3; opacity: .85; white-space: nowrap; text-shadow: 0 1px 2px rgba(20,30,45,.5); }
+
+/* 🎖 journey badges */
+.gembadge-btn { border: 1px solid rgba(253,246,227,.4); background: rgba(253,246,227,.12);
+  color: #fdf6e3; border-radius: 999px; padding: 4px 10px; font-size: 12.5px; cursor: pointer; }
+.gembadges { position: absolute; inset: 0; z-index: 8; background: rgba(24,34,48,.55);
+  display: flex; align-items: flex-start; justify-content: center; padding: 64px 14px 20px; overflow-y: auto; }
+.gembadges-panel { background: #faf5ef; border-radius: 18px; padding: 16px 16px 14px;
+  width: 100%; max-width: 420px; box-shadow: 0 18px 50px -18px rgba(20,30,45,.55); }
+.gembadges-stats { font-size: 12.5px; color: #8a7a6d; margin: 4px 0 12px; }
+.gembadges-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.gembadge { position: relative; text-align: center; border: 1px solid #e7dccf; border-radius: 14px;
+  padding: 10px 6px 8px; background: #fffdfb; opacity: .45; filter: grayscale(.85); }
+.gembadge.got { opacity: 1; filter: none; border-color: #d9a173; background: #fdf8f0;
+  box-shadow: 0 2px 8px -3px rgba(193,95,60,.3); }
+.gembadge-e { display: block; font-size: 24px; line-height: 1.2; }
+.gembadge-name { display: block; font-size: 11.5px; font-weight: 650; color: #2b2521; margin-top: 2px; }
+.gembadge-req { display: block; font-size: 10px; color: #8a7a6d; margin-top: 1px; }
+.gembadge-them { position: absolute; top: -6px; right: -4px; font-size: 13px;
+  filter: none; background: #fffdfb; border: 1px solid #e7dccf; border-radius: 999px; padding: 1px 3px; }
+.gemfs-duelprize { font-size: 15px; font-weight: 650; color: #fdf6e3; background: rgba(193,95,60,.85);
+  border-radius: 999px; padding: 5px 14px; }
 
 /* 💎 juice: level intro card, combo banner, modifier chips */
 .gemfs-intro { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); z-index: 4;
@@ -1819,36 +1842,41 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
    Anchored over each tower; outlined tail points down at the window;
    pop in from the tail whenever the message rotates. */
 .shouts { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
-.shout { position: absolute; max-width: 44%; background: #fffdfb;
+/* Bubbles are pinned INSIDE the screen (12px insets) and never scale past
+   1 at rest — only the tail slides along the bubble to keep pointing at its
+   spire window. Readable first, theatrical second. */
+.shout { position: absolute; max-width: min(52%, 230px); background: #fffdfb;
   border: 2px solid #d9a173; border-radius: 14px; padding: 7px 11px 8px;
   box-shadow: 0 4px 12px -4px rgba(138,90,68,.35);
   font-size: 13.5px; line-height: 1.45; color: #4a3529; }
-/* the shouting match: the LOUD side bursts in oversized and stays big;
-   the out-gratituded side shrinks down small until its comeback */
-.shout.loud { z-index: 6; animation: shoutYell .65s var(--spring) both; }
+/* the shouting match: the LOUD side pops in (brief 1.1 overshoot, settles at
+   full size); the out-gratituded side shrinks small until its comeback */
+.shout.loud { z-index: 6; animation: shoutYell .6s var(--spring) both; }
 .shout.quiet { z-index: 5; animation: shoutShrink .5s ease both; }
 @keyframes shoutYell {
-  0%   { opacity: 0; transform: translate(-50%, -100%) scale(.25); }
-  55%  { opacity: 1; transform: translate(-50%, -100%) scale(1.5); }
-  100% { opacity: 1; transform: translate(-50%, -100%) scale(1.16); }
+  0%   { opacity: 0; transform: translateY(-100%) scale(.3); }
+  60%  { opacity: 1; transform: translateY(-100%) scale(1.1); }
+  100% { opacity: 1; transform: translateY(-100%) scale(1); }
 }
 @keyframes shoutShrink {
-  0%   { opacity: 1; transform: translate(-50%, -100%) scale(1.16); }
-  100% { opacity: .85; transform: translate(-50%, -100%) scale(.74); }
+  0%   { opacity: 1; transform: translateY(-100%) scale(1); }
+  100% { opacity: .85; transform: translateY(-100%) scale(.78); }
 }
 .shout::after { content: ""; position: absolute; bottom: -9px; width: 16px; height: 16px;
   background: #fffdfb; border-right: 2px solid #d9a173; border-bottom: 2px solid #d9a173;
   transform: rotate(45deg); }
-/* bubbles are positioned in PX measured from the real rendered spire-window
-   elements (castle.js Shouts) — correct on every screen size; the centered
-   tail always touches the window */
-.shout.left, .shout.right { transform-origin: 50% 112%; }
-.shout::after { left: calc(50% - 8px); }
-.shout { transform: translate(-50%, -100%); width: max-content; }
+/* the tail slides to the spire window's x (measured px, via CSS vars) but is
+   clamped inside the bubble, so it always points AT the window while the
+   bubble itself stays fully on screen */
+.shout.left { transform-origin: 25% 108%; }
+.shout.left::after { left: clamp(10px, var(--tailx, 40px), calc(100% - 26px)); }
+.shout.right { transform-origin: 75% 108%; }
+.shout.right::after { left: auto; right: clamp(10px, var(--tailr, 40px), calc(100% - 26px)); }
+.shout { transform: translateY(-100%); width: max-content; }
 /* keep the settle scales when animations are off */
 @media (prefers-reduced-motion: reduce) {
-  .shout.loud { animation: none; transform: translate(-50%, -100%) scale(1.1); }
-  .shout.quiet { animation: none; transform: translate(-50%, -100%) scale(.78); opacity: .85; }
+  .shout.loud { animation: none; transform: translateY(-100%); }
+  .shout.quiet { animation: none; transform: translateY(-100%) scale(.78); opacity: .85; }
 }
 .shout-emoji { position: absolute; top: -11px; left: -9px; font-size: 17px;
   filter: drop-shadow(0 2px 3px rgba(138,90,68,.35)); }

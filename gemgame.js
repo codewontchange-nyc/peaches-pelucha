@@ -2,7 +2,7 @@ import { h } from "https://esm.sh/preact@10.23.2";
 import { useState, useEffect, useRef, useCallback } from "https://esm.sh/preact@10.23.2/hooks";
 import htm from "https://esm.sh/htm@3.1.1";
 import * as G from "./gems.js";
-import { GemMap } from "./gemmap.js";
+import { GemMap, BADGES, earnedBadges } from "./gemmap.js";
 
 const html = htm.bind(h);
 
@@ -198,7 +198,7 @@ function makeSprites(px, themeEmoji) {
 }
 
 /* ================= the playable surface (gamefs) ======================== */
-function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
+function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
   const [levelNo, setLevelNo] = useState(startLevel || 1);
   const [phase, setPhase] = useState("play");        // play | cleared | dead | duelend
   const [hud, setHud] = useState(null);              // {score, misses, moveEvery, cur, next, stars, warmLeft, coolLeft}
@@ -427,9 +427,13 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
       setHud((h0) => ({ ...h0, stars }));
       onCleared && onCleared(st.run.levelNo, stars, run.score);
     } else if (run.status === "dead") { snd.dead(); setPhase("dead"); }
-    else if (run.status === "duelend") setPhase("duelend");
+    else if (run.status === "duelend") {
+      setPhase("duelend");
+      // one award per rack: the guard lives on st, which boot() rebuilds
+      if (!st.duelPaid) { st.duelPaid = true; onDuelEnd && onDuelEnd(run.winner, run.scores); }
+    }
     draw();
-  }, [draw, onCleared]);
+  }, [draw, onCleared, onDuelEnd]);
 
   const tick = useCallback((now) => {
     const st = S.current; if (!st) return;
@@ -822,6 +826,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
         return html`<div class="gemfs-over">
           <div class="gemfs-big">${w.emoji} ${w.name} runs the table!</div>
           <div class="gemfs-stars">${S.current.run.winner === 0 ? "●" : "◐"} 🎱</div>
+          <div class="gemfs-duelprize">+25 💗 to ${w.name}</div>
           <div class="tnum" style="font-size:16px">● ${S.current.run.scores[0]} · ◐ ${S.current.run.scores[1]}</div>
           <button class="btn" onClick=${() => { boot((Math.random() * 4294967296) >>> 0); setTimeout(fit, 30); }}>Rematch ⚔️</button>
           <button class="linkbtn" onClick=${() => onExit(levelNo)}>Back to the castle</button>
@@ -883,7 +888,19 @@ export function GemQuestCard({ client, me, players, flash }) {
     } catch {}
   }, [client, me.id, load, flash]);
 
+  // winner takes 25 💗 — awarded once per rack (GemPlay's st.duelPaid guard),
+  // recorded in games so lifetime tallies count duels too
+  const awardDuel = useCallback(async (winnerIdx, d) => {
+    const w = winnerIdx === 0 ? d.p0 : d.p1;
+    try {
+      await client.from("transactions").insert({ player_id: w.id, amount: 25, type: "earn", description: "Gem Duel won 🎱" });
+      await client.from("games").insert({ name: "Gem Duel", status: "finished", winner_id: w.id, finished_at: new Date().toISOString() });
+      flash(`${w.emoji} ${w.name} +25 💗 — table run!`);
+    } catch {}
+  }, [client, flash]);
+
   if (dueling) return html`<${GemPlay} me=${me} duel=${dueling}
+    onDuelEnd=${(winnerIdx) => awardDuel(winnerIdx, dueling)}
     onExit=${() => setDueling(null)} />`;
 
   if (playing) return html`<${GemPlay} me=${me} startLevel=${playing.level}
@@ -898,7 +915,7 @@ export function GemQuestCard({ client, me, players, flash }) {
     <div class="eyebrow">Gem Quest 💎</div>
     <div class="gamehero-title">Level ${myLevel}</div>
     <div class="gamehero-meta tnum">
-      ${myBest ? `best ${myBest}` : "a new journey"}${partner && theirLevel ? ` · ${partner.emoji} is on ${theirLevel + 1}` : ""}
+      ${myBest ? `best ${myBest}` : "a new journey"} · 🎖 ${earnedBadges(mine).length}/${BADGES.length}${partner && theirLevel ? ` · ${partner.emoji} is on ${theirLevel + 1}` : ""}
     </div>
     <div class="row" style="gap:10px; justify-content:center; flex-wrap:wrap">
       <button class="btn gamehero-btn" onClick=${() => setPlaying({ level: myLevel })}>Play ▸</button>
@@ -909,7 +926,7 @@ export function GemQuestCard({ client, me, players, flash }) {
       <div class="modal" onClick=${(e) => e.stopPropagation()}>
         <div class="handle"></div>
         <div class="eyebrow" style="margin-bottom:6px">🎱 gem duel — pass the phone</div>
-        <p class="sub" style="margin-bottom:12px">One rack, alternating shots. Clear <b>your</b> balls first — and wall theirs in. But mind the 🎱: whoever knocks the eight-ball loose eats <b>-300</b>. Who shoots ● solids? The other gets ◐ stripes.</p>
+        <p class="sub" style="margin-bottom:12px">One rack, alternating shots. Clear <b>your</b> balls first — and wall theirs in. But mind the 🎱: whoever knocks the eight-ball loose eats <b>-300</b>. Winner takes <b>25 💗</b>. Who shoots ● solids? The other gets ◐ stripes.</p>
         <div class="row" style="gap:10px">
           <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: me, p1: partner }); }}>● ${me.emoji} ${me.name}</button>
           <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: partner, p1: me }); }}>● ${partner.emoji} ${partner.name}</button>
