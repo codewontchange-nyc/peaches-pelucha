@@ -1574,7 +1574,11 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .worldv { --fly: 0; --hubh: calc(100dvh - var(--safe-top) - 58px);
   height: var(--hubh); overflow-y: auto; overflow-x: hidden;
   scroll-snap-type: y mandatory; overscroll-behavior: contain;
-  scrollbar-width: none; }
+  scrollbar-width: none;
+  /* the scroller wears the SEAM color: when the castle sinks mid-flight its
+     top edge pulls away from the sky — the exposed band must be invisible */
+  background: #faf5ef; }
+.worldv.w-night { background: #33425e; }
 .worldv::-webkit-scrollbar { display: none; }
 .skyzone, .castlezone { height: 100%; scroll-snap-align: start; scroll-snap-stop: always; }
 .castlezone { position: relative; display: flex; align-items: flex-end; justify-content: center;
@@ -1603,6 +1607,12 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .skyrealm.sr-dawn { background: linear-gradient(180deg, #2b3a5c 0%, #56507a 26%, #a06a88 50%, #e8938a 72%, #ffd9ae 90%, #faf5ef 100%); }
 .skyrealm.sr-dusk { background: linear-gradient(180deg, #2e3a5e 0%, #6a4a74 26%, #b25f74 50%, #ee8a63 72%, #ffc490 90%, #faf5ef 100%); }
 .skyrealm.sr-night { background: linear-gradient(180deg, #0d1a30 0%, #16263f 34%, #23324e 64%, #2e3d59 88%, #33425e 100%); }
+/* melt the sky's last strip into the seam color so clouds/washes never end
+   on a hard edge at the zone boundary */
+.skyrealm::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0;
+  height: 64px; pointer-events: none; z-index: 1;
+  background: linear-gradient(180deg, rgba(250,245,239,0), #faf5ef); }
+.skyrealm.sr-night::after { background: linear-gradient(180deg, rgba(51,66,94,0), #33425e); }
 /* at night the castle stands in evening blue, lawn deep green; the seam
    still matches the sky's bottom color */
 .worldv.w-night .castlezone { background: linear-gradient(180deg, #33425e 0%, #3d4c66 46%, #43526c 82%, #2e4a3a 100%); }
