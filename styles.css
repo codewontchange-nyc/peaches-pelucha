@@ -1852,3 +1852,54 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   filter: drop-shadow(0 2px 3px rgba(138,90,68,.35)); }
 .shout.right .shout-emoji { left: auto; right: -9px; }
 .shout-text { font-family: var(--serif); font-style: italic; }
+
+/* ---- 🗺 "Oh, the places we go": sticky map header + been/want toggle ---- */
+.map-head { position: sticky; top: calc(var(--safe-top) + 56px); z-index: 6;
+  margin: calc(-1 * var(--sp-4)) -18px 10px; padding: 12px 18px 10px;
+  background: linear-gradient(180deg, #eef5f9 0%, rgba(238,245,249,.94) 78%, rgba(238,245,249,0) 100%); }
+.app-shell.map .map-head { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+.map-head .shead { margin-bottom: 8px; }
+.map-head h2 { margin-bottom: 0; }
+.mapseg { display: flex; gap: 4px; background: rgba(255,255,255,.7); border: 1px solid rgba(185,206,221,.7);
+  border-radius: 999px; padding: 3px; }
+.mapseg button { flex: 1; border: 0; background: none; border-radius: 999px; padding: 7px 0;
+  font-size: 13px; font-weight: 700; color: #5a768c; cursor: pointer; }
+.mapseg button.on { background: #fff; color: #2d4a63; box-shadow: 0 1px 4px rgba(43,55,70,.15); }
+.mapfull-bar .mapseg { flex: 0 0 auto; width: 190px; }
+
+/* wishlist pins: bare emoji with a pin-drop shadow; done ones wear a check */
+.mkr-want { position: relative; font-size: 30px; line-height: 1; text-align: center;
+  filter: drop-shadow(0 4px 5px rgba(43,55,70,.4)); }
+.mkr-want.done { opacity: .62; filter: grayscale(.35) drop-shadow(0 3px 4px rgba(43,55,70,.3)); }
+.mkr-want i { position: absolute; top: -4px; right: -2px; font-style: normal; font-size: 12px;
+  background: #7fb069; color: #fff; border-radius: 50%; width: 16px; height: 16px; line-height: 16px; }
+.mkr-want.pend { animation: hubBob 1s ease-in-out infinite; }
+
+/* want-list rows */
+.map-row.went { opacity: .6; }
+.mr-been { flex: none; font-size: 11.5px; font-weight: 800; color: #5a768c;
+  border: 1.5px solid rgba(90,118,140,.4); border-radius: 999px; padding: 4px 10px; }
+.mr-been.on { background: #7fb069; border-color: #7fb069; color: #fff; }
+.mr-more { flex: none; width: 28px; height: 28px; display: grid; place-content: center;
+  color: #5a768c; font-size: 17px; }
+
+/* place search on the full map (want view) */
+.mapsearch2 { position: relative; z-index: 7; display: flex; align-items: center; gap: 8px;
+  margin: 0 12px 8px; background: rgba(255,255,255,.94); border: 1px solid rgba(185,206,221,.8);
+  border-radius: 14px; padding: 0 12px; }
+.ms2-ico { font-size: 14px; opacity: .7; }
+.mapsearch2 input { flex: 1; border: 0; background: transparent; padding: 11px 0; font-size: 15px; box-shadow: none; }
+.mapsearch2 input:focus { outline: none; box-shadow: none; }
+.ms2-clear { flex: none; border: 0; background: rgba(45,74,99,.1); width: 24px; height: 24px;
+  border-radius: 50%; font-size: 12px; cursor: pointer; color: #2d4a63; }
+.mapsearch2-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: #fff; border: 1px solid rgba(185,206,221,.8); border-radius: 14px; overflow: hidden;
+  box-shadow: 0 16px 40px -12px rgba(43,55,70,.4); max-height: 46vh; overflow-y: auto; }
+.ms2-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0;
+  background: none; padding: 12px 14px; cursor: pointer; font-size: 14px; color: #2d4a63; }
+.ms2-row + .ms2-row { border-top: 1px solid rgba(185,206,221,.4); }
+.ms2-row.muted { color: #8aa0b3; cursor: default; }
+.ms2-label { flex: 1; min-width: 0; line-height: 1.35; }
+.map-tapnote { position: absolute; z-index: 900; top: 12px; left: 50%; transform: translateX(-50%);
+  background: rgba(45,74,99,.88); color: #fff; font-size: 12.5px; font-weight: 700;
+  padding: 7px 15px; border-radius: 999px; pointer-events: none; animation: fade .2s ease; }
