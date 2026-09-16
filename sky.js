@@ -137,78 +137,74 @@ export function SkyRealm({ client, players }) {
     return () => { io.disconnect(); clearInterval(iv); };
   }, [client]);
 
-  // narrative line: "Today — 🍝 Dinner at Nonna's at 7pm · Nonna's, then …"
-  const storyLine = (list, label) => html`<p class="sky-story" key=${label}>
-    <b class="sky-story-day">${label}</b>
-    ${!list ? html`<span class="sky-soft"> …</span>`
-      : list.length === 0 ? html` the calendar is open — a free day together 🕊`
-      : list.slice(0, 3).map((ev, i) => html`<span key=${ev.id}>${i > 0 ? ", then " : " "}${ev.emoji} <b>${ev.title}</b>${ev.starts_at ? ` at ${prettyTime(ev.starts_at)}` : ""}${ev.location ? ` · ${ev.location}` : ""}</span>`)}
-  </p>`;
+  // one narrative sentence per day: "Today, 🍝 Dinner at Nonna's at 7pm."
+  const daySentence = (list, label) => html`<span key=${label}>
+    <b class="sky-day">${label}</b>${!list ? "…"
+      : list.length === 0 ? html`, the calendar is open — a free day together 🕊`
+      : list.slice(0, 3).map((ev, i) => html`<span key=${ev.id}>${i > 0 ? ", then" : ","} ${ev.emoji} <b>${ev.title}</b>${ev.starts_at ? ` at ${prettyTime(ev.starts_at)}` : ""}${ev.location ? ` · ${ev.location}` : ""}</span>`)}. </span>`;
+
+  const rainNote = (d) => (d.rain >= 30 ? ` (☔️ ${d.rain}%)` : "");
+  const minsProse = (mins) => mins.map((m, i) => html`<b key=${i} class="tnum">${m === 0 ? "now" : m}</b>${i < mins.length - 2 ? ", " : i === mins.length - 2 ? " & " : ""}`);
 
   return html`<div class="skyrealm" ref=${rootRef}>
-    <!-- living sky: sun at the summit, clouds drifting on two depths, birds -->
+    <!-- living sky: the cloud field opens with the ascent; the sun holds
+         its place above you (both driven by --fly, set by the scroller) -->
     <div class="sky-air" aria-hidden="true">
-      <svg class="sky-sun" viewBox="0 0 120 120" fill="none">
-        <circle cx="60" cy="60" r="26" fill="#ffd166" stroke="#e8a53a" stroke-width="2.5" />
-        <g stroke="#f4c542" stroke-width="3" stroke-linecap="round" class="sun-rays">
-          <path d="M60 18 v-10" /><path d="M60 102 v10" /><path d="M18 60 h-10" /><path d="M102 60 h10" />
-          <path d="M31 31 l-7 -7" /><path d="M89 31 l7 -7" /><path d="M31 89 l-7 7" /><path d="M89 89 l7 7" />
-        </g>
-      </svg>
-      <${Cloud} soft style="--y:9%; --d:86s; --s:1.5; --o:.85; --neg:-40s" />
-      <${Cloud} style="--y:20%; --d:58s; --s:1; --o:1; --neg:-12s" />
-      <${Cloud} soft style="--y:36%; --d:95s; --s:1.9; --o:.8; --neg:-66s" />
-      <${Cloud} style="--y:50%; --d:64s; --s:.85; --o:1; --neg:-30s" />
-      <${Cloud} soft style="--y:66%; --d:78s; --s:1.4; --o:.85; --neg:-52s" />
-      <${Cloud} style="--y:82%; --d:70s; --s:1.1; --o:.95; --neg:-8s" />
-      <svg class="sky-bird" style="--y:30%; --d:34s; --neg:-6s" viewBox="0 0 40 20" fill="none">
+      <${Cloud} soft style="--y:8%; --d:86s; --s:1.5; --o:.85; --neg:-40s" />
+      <${Cloud} style="--y:19%; --d:58s; --s:1; --o:.95; --neg:-12s" />
+      <${Cloud} soft style="--y:34%; --d:95s; --s:1.9; --o:.75; --neg:-66s" />
+      <${Cloud} style="--y:49%; --d:64s; --s:.85; --o:.9; --neg:-30s" />
+      <${Cloud} soft style="--y:64%; --d:78s; --s:1.4; --o:.8; --neg:-52s" />
+      <${Cloud} style="--y:80%; --d:70s; --s:1.1; --o:.9; --neg:-8s" />
+      <svg class="sky-bird" style="--y:28%; --d:34s; --neg:-6s" viewBox="0 0 40 20" fill="none">
         <path d="M2 12 Q10 2 20 11 Q30 2 38 12" stroke="#111" stroke-width="2.5" stroke-linecap="round" />
       </svg>
-      <svg class="sky-bird" style="--y:58%; --d:41s; --neg:-22s" viewBox="0 0 40 20" fill="none">
+      <svg class="sky-bird" style="--y:56%; --d:41s; --neg:-22s" viewBox="0 0 40 20" fill="none">
         <path d="M2 12 Q10 2 20 11 Q30 2 38 12" stroke="#111" stroke-width="2.5" stroke-linecap="round" />
       </svg>
     </div>
+    <svg class="sky-sun" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+      <circle cx="60" cy="60" r="26" fill="#ffd166" stroke="#e8a53a" stroke-width="2.5" />
+      <g stroke="#f4c542" stroke-width="3" stroke-linecap="round" class="sun-rays">
+        <path d="M60 18 v-10" /><path d="M60 102 v10" /><path d="M18 60 h-10" /><path d="M102 60 h10" />
+        <path d="M31 31 l-7 -7" /><path d="M89 31 l7 -7" /><path d="M31 89 l-7 7" /><path d="M89 89 l7 7" />
+      </g>
+    </svg>
 
+    <!-- one elegant screen: unbounded editorial lines over the moving sky -->
     <div class="sky-content">
-      <!-- the summit: today's scripture -->
-      <section class="sky-verseblock">
-        <p class=${`sky-verse ${verse.text.length > 150 ? "xlong" : verse.text.length > 90 ? "long" : ""}`}>“${verse.text}”</p>
-        <div class="sky-verse-ref">${verse.ref}</div>
-      </section>
+      <p class=${`sky-verse ${verse.text.length > 150 ? "xlong" : verse.text.length > 90 ? "long" : ""}`}>“${verse.text}”</p>
+      <div class="sky-verse-ref">${verse.ref}</div>
 
-      <!-- our days, told plainly -->
-      <section class="sky-plate">
-        <div class="sky-eyebrow">☁️ our days</div>
-        ${storyLine(plans && plans.today, "Today")}
-        ${storyLine(plans && plans.tomorrow, "Tomorrow")}
-        ${err.plans ? html`<p class="sky-soft">calendar unavailable</p>` : null}
-      </section>
+      <div class="sky-orn">✦</div>
+      <p class="sky-par">
+        <span class="sky-cap">our days</span><br/>
+        ${daySentence(plans && plans.today, "Today")}${daySentence(plans && plans.tomorrow, "Tomorrow")}
+        ${err.plans ? html`<span class="sky-soft">calendar unavailable</span>` : null}
+      </p>
 
-      <!-- the city below -->
-      <section class="sky-plate">
-        <div class="sky-eyebrow">🗽 new york</div>
-        ${wx ? html`
-          <div class="sky-wx"><span class="sky-wx-emoji">${wx.emoji}</span>
-            <b class="tnum">${wx.now}°</b> <span class="sky-soft">${wx.label}</span></div>
-          <p class="sky-story">Today ${wx.today.hi}°/${wx.today.lo}°${wx.today.rain >= 30 ? ` with a ${wx.today.rain}% chance of rain ☔️` : ""}.${" "}
-            Tomorrow ${wx.tomorrow.emoji} ${wx.tomorrow.hi}°/${wx.tomorrow.lo}°${wx.tomorrow.rain >= 30 ? `, ${wx.tomorrow.rain}% rain ☔️` : ""}.</p>`
-        : html`<p class="sky-soft">${err.wx ? "weather unavailable" : "…"}</p>`}
-      </section>
+      <div class="sky-orn">✦</div>
+      <p class="sky-par">
+        <span class="sky-cap">new york</span><br/>
+        ${wx ? html`${wx.emoji} <b class="tnum">${wx.now}°</b> and ${wx.label} right now —
+          today <span class="tnum">${wx.today.hi}°/${wx.today.lo}°</span>${rainNote(wx.today)},
+          tomorrow ${wx.tomorrow.emoji} <span class="tnum">${wx.tomorrow.hi}°/${wx.tomorrow.lo}°</span>${rainNote(wx.tomorrow)}.`
+        : html`<span class="sky-soft">${err.wx ? "weather unavailable" : "…"}</span>`}
+      </p>
 
-      <section class="sky-plate">
-        <div class="sky-eyebrow"><span class="bullet3">3</span> 145 st → downtown</div>
-        ${trains ? html`
-          <div class="sky-train tnum">${trains.mins.length
-            ? trains.mins.map((m, i) => html`<b key=${i}>${m === 0 ? "now" : m + " min"}</b>`)
-            : "no trains posted"}</div>
-          <p class="sky-soft">as of ${trains.at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>`
-        : html`<p class="sky-soft">${err.trains ? "arrivals unavailable" : "…"}</p>`}
+      <div class="sky-orn">✦</div>
+      <p class="sky-par">
+        <span class="sky-cap"><span class="bullet3">3</span> 145 st → downtown</span><br/>
+        ${trains ? html`${trains.mins.length
+            ? html`next trains in ${minsProse(trains.mins)} min <span class="sky-soft">(as of ${trains.at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})</span>`
+            : "no trains posted right now"}`
+          : html`<span class="sky-soft">${err.trains ? "arrivals unavailable" : "…"}</span>`}
         ${delays == null
-          ? (err.delays ? html`<p class="sky-soft">status unavailable</p>` : null)
+          ? (err.delays ? html`<br/><span class="sky-soft">status unavailable</span>` : null)
           : delays.length === 0
-            ? html`<p class="sky-good">✓ good service on the 3</p>`
-            : delays.map((d, i) => html`<p key=${i} class="sky-delay">⚠️ ${d}</p>`)}
-      </section>
+            ? html`<br/><span class="sky-good">✓ good service on the 3</span>`
+            : delays.map((d, i) => html`<br key=${"b" + i}/><span key=${i} class="sky-delay">⚠️ ${d}</span>`)}
+      </p>
 
       <div class="sky-descent">the castle awaits below ⌄</div>
     </div>

@@ -113,27 +113,43 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
     return () => { document.removeEventListener("visibilitychange", onVis); clearAll(); };
   }, [onEnter]);
 
-  // ☁️ the world above: the sky sits ABOVE the castle in normal page flow —
-  // swipe up and the hand-drawn clouds rise with the screen. On mount we
-  // land on the castle instantly (no animation); gentle proximity snap makes
-  // settling on either zone feel seamless.
-  const castleZone = useRef(null);
-  const skyZone = useRef(null);
+  // ☁️ the flight up: a two-screen snap scroller (sky above, castle home).
+  // Scroll position drives ONE css var --fly (0 = at the castle, 1 = in the
+  // sky); pure-transform layers read it — the castle sinks and swells (we
+  // swoop toward it as it falls away), the cloud field starts huge overhead
+  // (worm's-eye) and opens up, and the sun glides down to hold its place
+  // above you. All composited, no layout work per frame.
+  const worldRef = useRef(null);
   useEffect(() => {
-    const cz = castleZone.current;
-    if (cz) cz.scrollIntoView({ behavior: "instant", block: "start" });
-    document.documentElement.classList.add("sky-snap");
-    return () => document.documentElement.classList.remove("sky-snap");
+    const el = worldRef.current; if (!el) return;
+    const max = () => el.scrollHeight - el.clientHeight;
+    el.scrollTop = max();                            // land on the castle, instantly
+    el.style.setProperty("--fly", "0");
+    const size = () => el.style.setProperty("--skyH", Math.round(el.clientHeight * 0.86) + "px");
+    size();
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const m = max();
+        const f = m > 0 ? Math.min(1, Math.max(0, 1 - el.scrollTop / m)) : 0;
+        el.style.setProperty("--fly", f.toFixed(4));
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", size);
+    return () => { el.removeEventListener("scroll", onScroll); window.removeEventListener("resize", size); cancelAnimationFrame(raf); };
   }, []);
 
-  return html`<div class="worldv">
-    <section class="skyzone" ref=${skyZone}><${SkyRealm} client=${client} players=${players} /></section>
-    <section class="castlezone" ref=${castleZone}>
+  return html`<div class="worldv" ref=${worldRef}>
+    <section class="skyzone"><${SkyRealm} client=${client} players=${players} /></section>
+    <section class="castlezone">
       <div ref=${wrapRef} class=${`castle-wrap ${zoom ? "zoom" : ""}`}
         style=${zoom ? `transform-origin:${zoom.ox}px ${zoom.oy}px` : ""}>
         <div class="castle-bg"></div>
         <button class="sky-hint" aria-label="Look up at the sky"
-          onClick=${() => { const s = skyZone.current; s && s.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+          onClick=${() => { const w = worldRef.current; w && w.scrollTo({ top: 0, behavior: "smooth" }); }}>
           <svg viewBox="0 0 120 74" fill="none"><path d=${CLOUD_PATH} fill="#fff" stroke="#111" stroke-width="4" stroke-linejoin="round" vector-effect="non-scaling-stroke" /></svg>
           <i>⌃</i>
         </button>

@@ -1559,14 +1559,24 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 /* the paper page continues past the SVG on tall/wide screens */
 .castle-bg { position: fixed; inset: 0; z-index: -1;
   background: linear-gradient(180deg, #faf5ef 0%, #fdf3ea 58%, #e9f2e0 84%, #cdeac0 100%); }
-/* ☁️ the world above the castle — swipe up into the sky.
-   The sky sits ABOVE the castle in normal page flow, so the ascent is
-   plain native scrolling (buttery, momentum, no nested scrollers);
-   proximity snap settles you softly on either zone. */
-html.sky-snap { scroll-snap-type: y proximity; }
-.skyzone, .castlezone { scroll-snap-align: start;
-  scroll-margin-top: calc(var(--safe-top) + 58px); }
-.castlezone { position: relative; }
+/* ☁️ the flight into the sky — a two-screen SNAP scroller (sky over castle),
+   each zone exactly one screen. Scroll drives --fly (0 = castle, 1 = sky):
+   the castle sinks + swells (you swoop toward it as it falls away), the
+   cloud field starts huge overhead (worm's-eye) and opens up, the sun
+   glides to hold its place above you. Pure transform/opacity per frame. */
+.worldv { --fly: 0; --hubh: calc(100dvh - var(--safe-top) - 58px);
+  height: var(--hubh); overflow-y: auto; overflow-x: hidden;
+  scroll-snap-type: y mandatory; overscroll-behavior: contain;
+  scrollbar-width: none; }
+.worldv::-webkit-scrollbar { display: none; }
+.skyzone, .castlezone { height: 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+.castlezone { position: relative; display: flex; align-items: flex-end; justify-content: center;
+  background: linear-gradient(180deg, #faf5ef 0%, #fdf3ea 58%, #e9f2e0 84%, #cdeac0 100%);
+  transform: translateY(calc(var(--fly) * 9%)) scale(calc(1 + var(--fly) * .22));
+  transform-origin: 50% 8%; will-change: transform; }
+/* fit the whole castle in the zone (its fixed bg is replaced by the zone's) */
+.worldv .castle-wrap { width: min(100%, calc(var(--hubh) * .5417)); }
+.worldv .castle-bg { display: none; }
 
 /* look-up affordance: a bobbing cloud with a chevron, top center of home */
 .sky-hint { position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
@@ -1577,14 +1587,14 @@ html.sky-snap { scroll-snap-type: y proximity; }
   font-style: normal; font-weight: 800; font-size: 15px; color: #2b2521; padding-bottom: 6px; }
 @keyframes skyhintbob { 50% { transform: translateX(-50%) translateY(-5px); } }
 
-/* the sky itself: deep blue at the summit fading to the castle's paper sky,
-   so the bottom edge melts into the castle scene with no seam */
-.skyrealm { position: relative; overflow: hidden; min-height: 620px;
-  background: linear-gradient(180deg, #9ec8e8 0%, #b7d8ee 34%, #cfe7f5 62%, #ecf3f2 84%, #faf5ef 100%); }
-.sky-air { position: absolute; inset: 0; pointer-events: none; }
-.sky-sun { position: absolute; top: 12px; right: 9%; width: 92px; height: 92px; }
-.sun-rays { transform-origin: 60px 60px; animation: sunrays 24s linear infinite; }
-@keyframes sunrays { to { transform: rotate(360deg); } }
+/* the sky: deep blue at the summit fading to the castle's paper, one screen */
+.skyrealm { position: relative; height: 100%; overflow: hidden;
+  background: linear-gradient(180deg, #9ec8e8 0%, #b7d8ee 38%, #cfe7f5 66%, #ecf3f2 88%, #faf5ef 100%); }
+/* the cloud field: giant overhead at the castle (worm's-eye), opening up
+   to its resting scale as you fly */
+.sky-air { position: absolute; inset: -14% 0 0 0; pointer-events: none;
+  transform: scale(calc(1.55 - var(--fly, 1) * .55)); transform-origin: 50% 96%;
+  will-change: transform; }
 .skyc { position: absolute; top: var(--y); left: 0; width: calc(84px * var(--s, 1));
   opacity: var(--o, 1);
   animation: skydrift var(--d, 70s) linear infinite; animation-delay: var(--neg, 0s); }
@@ -1595,41 +1605,51 @@ html.sky-snap { scroll-snap-type: y proximity; }
 }
 .sky-bird { position: absolute; top: var(--y); left: 0; width: 30px;
   animation: skydrift var(--d, 40s) linear infinite; animation-delay: var(--neg, 0s); }
+/* the sun rides ABOVE you for the whole climb, settling at the summit */
+.sky-sun { position: absolute; top: 10px; right: 9%; width: 88px; height: 88px; z-index: 1;
+  transform: translateY(calc((1 - var(--fly, 1)) * var(--skyH, 620px)));
+  will-change: transform; }
+.sun-rays { transform-origin: 60px 60px; animation: sunrays 24s linear infinite; }
+@keyframes sunrays { to { transform: rotate(360deg); } }
+
+/* one elegant screen of unbounded editorial text over the moving sky;
+   it rises + fades in with the flight, and a soft radial veil (not a card)
+   keeps every word legible as clouds pass beneath */
+.sky-content { position: relative; z-index: 2; height: 100%; max-width: 420px;
+  margin: 0 auto; padding: 4vh 26px 10px; display: flex; flex-direction: column;
+  justify-content: center; text-align: center; gap: 3px; color: #2f4258;
+  opacity: calc(var(--fly, 1) * 1.25 - .25);
+  transform: translateY(calc((1 - var(--fly, 1)) * 52px));
+  will-change: transform, opacity;
+  text-shadow: 0 1px 0 rgba(255,255,255,.85), 0 0 12px rgba(255,255,255,.7); }
+.sky-content::before { content: ""; position: absolute; inset: 4% -8%;
+  background: radial-gradient(ellipse 60% 46% at 50% 46%, rgba(255,255,255,.5), transparent 72%);
+  pointer-events: none; z-index: -1; }
+.sky-verse { font-family: var(--serif, Fraunces, Georgia, serif); font-style: italic;
+  font-size: clamp(18px, 5.4vw, 23px); line-height: 1.5; margin: 0; color: #24384d; }
+.sky-verse.long { font-size: clamp(16px, 4.6vw, 19px); }
+.sky-verse.xlong { font-size: clamp(14px, 4vw, 16px); }
+.sky-verse-ref { margin-top: 7px; font-size: 11.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: #b96f4e; font-weight: 700; }
+.sky-orn { color: #8fb2cd; font-size: 12px; margin: 1.6vh 0; }
+.sky-par { font-size: 15.5px; line-height: 1.62; margin: 0; }
+.sky-cap { font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: #b96f4e; font-weight: 700; }
+.sky-day { color: #b96f4e; }
+.sky-soft { color: #6d829a; font-size: 13px; }
+.sky-good { color: #3e7a38; font-weight: 700; font-size: 14px; }
+.sky-delay { color: #a3403c; font-size: 13px; line-height: 1.4; }
+.bullet3 { display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%; background: #ee352e; color: #fff;
+  font-size: 11px; font-weight: 800; margin-right: 2px; vertical-align: -3px; }
+.sky-par .tnum { font-size: 18px; }
+.sky-descent { font-size: 12.5px; color: #8a9bb0; margin-top: 2vh; letter-spacing: .05em; }
+
 @media (prefers-reduced-motion: reduce) {
   .skyc, .sky-bird, .sun-rays, .sky-hint { animation: none; }
   .skyc { transform: translateX(30vw); } .sky-bird { transform: translateX(60vw); }
+  .castlezone, .sky-air, .sky-sun, .sky-content { transform: none !important; opacity: 1 !important; }
 }
-
-/* content: BIG and legible, floating on cloud plates */
-.sky-content { position: relative; z-index: 2; max-width: 480px; margin: 0 auto;
-  padding: 108px 20px 26px; display: flex; flex-direction: column; gap: 14px; }
-.sky-verseblock { text-align: center; padding: 26px 20px 22px; margin: 4px 6px 6px;
-  background: rgba(255,255,255,.92); border-radius: 34px;
-  box-shadow: 0 10px 30px -12px rgba(60,90,120,.35), 0 0 0 6px rgba(255,255,255,.35); }
-.sky-verse { font-family: var(--serif, Fraunces, Georgia, serif); font-style: italic;
-  font-size: 22px; line-height: 1.55; color: #2b2521; margin: 0; }
-.sky-verse.long { font-size: 19px; }
-.sky-verse.xlong { font-size: 16.5px; }
-.sky-verse-ref { margin-top: 10px; font-size: 12px; letter-spacing: .14em;
-  text-transform: uppercase; color: #b96f4e; font-weight: 700; }
-.sky-plate { background: rgba(255,255,255,.92); border-radius: 22px; padding: 16px 18px;
-  box-shadow: 0 8px 24px -12px rgba(60,90,120,.35); color: #2b2521; }
-.sky-eyebrow { font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
-  color: #b96f4e; font-weight: 700; margin-bottom: 6px; }
-.sky-story { font-size: 17px; line-height: 1.6; margin: 6px 0 0; }
-.sky-story-day { color: #b96f4e; }
-.sky-soft { color: #8a7a6d; font-size: 14px; margin: 4px 0 0; }
-.sky-wx { display: flex; align-items: center; gap: 8px; font-size: 24px; }
-.sky-wx-emoji { font-size: 28px; }
-.sky-wx .sky-soft { font-size: 16px; margin: 0; }
-.bullet3 { display: inline-flex; align-items: center; justify-content: center;
-  width: 17px; height: 17px; border-radius: 50%; background: #ee352e; color: #fff;
-  font-size: 11.5px; font-weight: 800; margin-right: 3px; vertical-align: -3px; }
-.sky-train { display: flex; gap: 16px; font-size: 22px; margin-top: 4px; flex-wrap: wrap; }
-.sky-good { color: #4c8a43; font-weight: 700; font-size: 15px; margin: 8px 0 0; }
-.sky-delay { color: #b00020; font-size: 14px; line-height: 1.45; margin: 8px 0 0; }
-.sky-descent { text-align: center; font-size: 13px; color: #8a9bb0; padding: 8px 0 2px;
-  letter-spacing: .04em; }
 
 .castle-wrap { position: relative; }
 .castle-svg { display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; }
