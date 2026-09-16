@@ -1597,9 +1597,9 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
    ========================================================================== */
 .app-shell.hub { padding-left: 0; padding-right: 0; padding-bottom: 0; }
 .app-shell.hub .topbar { margin-left: 0; margin-right: 0; }
-/* the sky continues past the SVG on tall/wide screens */
+/* the paper page continues past the SVG on tall/wide screens */
 .castle-bg { position: fixed; inset: 0; z-index: -1;
-  background: linear-gradient(180deg, #22344a 0%, #3d5670 55%, #59728b 82%, #2c4438 96%); }
+  background: linear-gradient(180deg, #faf5ef 0%, #fdf3ea 58%, #e9f2e0 84%, #cdeac0 100%); }
 .castle-wrap { position: relative; }
 .castle-svg { display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; }
 
@@ -1609,8 +1609,8 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .castle-svg .doorlight { opacity: 0; transition: opacity .22s ease; pointer-events: none; }
 .castle-svg .door.open .doorlight { opacity: 1; }
 .castle-svg .doorlight.lit { opacity: .5; }         /* badge glow (e.g. unanswered daily) */
-/* labels: ink text with a paper halo, readable on cream walls AND the dark lawn */
-.castle-svg .door-label { fill: #3a2f28; stroke: rgba(248,242,233,.9); stroke-width: 3;
+/* labels: warm book-brown with a paper halo (the birthday palette's ink) */
+.castle-svg .door-label { fill: #8a5a44; stroke: rgba(255,251,245,.95); stroke-width: 3;
   paint-order: stroke; stroke-linejoin: round; font-family: var(--sans); font-size: 9.5px;
   font-weight: 800; letter-spacing: .12em; text-anchor: middle; pointer-events: none; }
 .castle-svg .door-glyph { text-anchor: middle; pointer-events: none; }
@@ -1629,7 +1629,7 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
    set inline from walk distance; facing via scaleX on the span, bob on the <i>) */
 .hub-avatar { position: absolute; transform: translate(-50%, -100%);
   font-size: 30px; line-height: 1; pointer-events: none;
-  filter: drop-shadow(0 4px 6px rgba(10,16,22,.45));
+  filter: drop-shadow(0 3px 5px rgba(138,90,68,.4));
   transition-property: left, top; transition-timing-function: cubic-bezier(.45,.1,.35,1); }
 .hub-avatar span { display: inline-block; }
 .hub-avatar i { display: inline-block; font-style: normal; animation: hubBob 2.6s ease-in-out infinite; }
