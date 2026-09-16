@@ -197,7 +197,8 @@ function SkyLife() {
    recent gratitudes; live via realtime on the gratitudes table. ---- */
 function Shouts({ client, players }) {
   const [rows, setRows] = useState(null);
-  const [idx, setIdx] = useState(0);                 // rotates through recent gratefuls
+  const [active, setActive] = useState(0);           // whose turn to YELL (the loud bubble)
+  const [idxs, setIdxs] = useState([0, 0]);          // each side's place in their gratefuls
   const [anchors, setAnchors] = useState(null);      // measured px positions of the spire windows
   const boxRef = useRef(null);
   useEffect(() => {
@@ -214,7 +215,15 @@ function Shouts({ client, players }) {
         .on("postgres_changes", { event: "*", schema: "public", table: "gratitudes" }, () => load())
         .subscribe();
     } catch {}
-    const iv = setInterval(() => setIdx((i) => i + 1), 8000);
+    // the shouting match: every beat the OTHER tower yells its next grateful,
+    // louder — and the previous shouter shrinks down, out-gratituded
+    const iv = setInterval(() => {
+      setActive((a) => {
+        const n = 1 - a;
+        setIdxs((ix) => ix.map((v, i) => (i === n ? v + 1 : v)));
+        return n;
+      });
+    }, 4500);
     return () => { live = false; clearInterval(iv); try { ch && client.removeChannel(ch); } catch {} };
   }, [client]);
 
@@ -242,13 +251,13 @@ function Shouts({ client, players }) {
   const bubbles = [players[0], players[1]].map((p, side) => {
     const mine = rows.filter((r) => r.created_by === p.id);
     if (!mine.length) return null;
-    const g = mine[idx % mine.length];
+    const g = mine[idxs[side] % mine.length];
     const text = g.text.length > 72 ? g.text.slice(0, 70).trimEnd() + "…" : g.text;
     return { side, emoji: p.emoji, text, key: g.id };
   });
   if (!bubbles.some(Boolean)) return null;
   return html`<div class="shouts" aria-hidden="true" ref=${boxRef}>
-    ${bubbles.map((b) => b && anchors && html`<div key=${b.key} class=${`shout ${b.side ? "right" : "left"}`}
+    ${bubbles.map((b) => b && anchors && html`<div key=${b.key} class=${`shout ${b.side ? "right" : "left"} ${b.side === active ? "loud" : "quiet"}`}
       style=${`left:${(b.side ? anchors.r : anchors.l).x.toFixed(1)}px; top:${((b.side ? anchors.r : anchors.l).y + 6).toFixed(1)}px`}>
       <span class="shout-emoji">${b.emoji}</span>
       <span class="shout-text">“${b.text}”</span>

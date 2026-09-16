@@ -1817,11 +1817,23 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
    Anchored over each tower; outlined tail points down at the window;
    pop in from the tail whenever the message rotates. */
 .shouts { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
-.shout { position: absolute; max-width: 46%; background: #fffdfb;
+.shout { position: absolute; max-width: 44%; background: #fffdfb;
   border: 2px solid #d9a173; border-radius: 14px; padding: 7px 11px 8px;
   box-shadow: 0 4px 12px -4px rgba(138,90,68,.35);
-  font-size: 13.5px; line-height: 1.45; color: #4a3529;
-  animation: shoutPop .5s var(--spring) both; }
+  font-size: 13.5px; line-height: 1.45; color: #4a3529; }
+/* the shouting match: the LOUD side bursts in oversized and stays big;
+   the out-gratituded side shrinks down small until its comeback */
+.shout.loud { z-index: 6; animation: shoutYell .65s var(--spring) both; }
+.shout.quiet { z-index: 5; animation: shoutShrink .5s ease both; }
+@keyframes shoutYell {
+  0%   { opacity: 0; transform: translate(-50%, -100%) scale(.25); }
+  55%  { opacity: 1; transform: translate(-50%, -100%) scale(1.5); }
+  100% { opacity: 1; transform: translate(-50%, -100%) scale(1.16); }
+}
+@keyframes shoutShrink {
+  0%   { opacity: 1; transform: translate(-50%, -100%) scale(1.16); }
+  100% { opacity: .85; transform: translate(-50%, -100%) scale(.74); }
+}
 .shout::after { content: ""; position: absolute; bottom: -9px; width: 16px; height: 16px;
   background: #fffdfb; border-right: 2px solid #d9a173; border-bottom: 2px solid #d9a173;
   transform: rotate(45deg); }
@@ -1831,13 +1843,12 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .shout.left, .shout.right { transform-origin: 50% 112%; }
 .shout::after { left: calc(50% - 8px); }
 .shout { transform: translate(-50%, -100%); width: max-content; }
+/* keep the settle scales when animations are off */
+@media (prefers-reduced-motion: reduce) {
+  .shout.loud { animation: none; transform: translate(-50%, -100%) scale(1.1); }
+  .shout.quiet { animation: none; transform: translate(-50%, -100%) scale(.78); opacity: .85; }
+}
 .shout-emoji { position: absolute; top: -11px; left: -9px; font-size: 17px;
   filter: drop-shadow(0 2px 3px rgba(138,90,68,.35)); }
 .shout.right .shout-emoji { left: auto; right: -9px; }
 .shout-text { font-family: var(--serif); font-style: italic; }
-@keyframes shoutPop {
-  0% { opacity: 0; transform: translate(-50%, -100%) scale(.3); }
-  70% { opacity: 1; transform: translate(-50%, -100%) scale(1.06); }
-  100% { opacity: 1; transform: translate(-50%, -100%) scale(1); }
-}
-@media (prefers-reduced-motion: reduce) { .shout { animation: none; } }
