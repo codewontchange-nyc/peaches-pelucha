@@ -945,7 +945,8 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .app-shell.cool:has(.worldv) .topbar,
 .app-shell.cool.hubworld .topbar { background: #fffbf4;
   -webkit-backdrop-filter: none; backdrop-filter: none;
-  border-bottom-color: rgba(185,111,78,.45); }
+  border-bottom-color: rgba(185,111,78,.45);
+  margin-bottom: 0; }
 .app-shell.cool .brand.script { color: #8a5a44; }
 
 /* journal-flip page transition (replays on tab change via key=tab) */
@@ -1580,8 +1581,9 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   background: linear-gradient(180deg, #faf5ef 0%, #fdf3ea 58%, #e9f2e0 84%, #cdeac0 100%);
   transform: translateY(calc(var(--fly) * 9%)) scale(calc(1 + var(--fly) * .22));
   transform-origin: 50% 8%; will-change: transform; }
-/* fit the whole castle in the zone (its fixed bg is replaced by the zone's) */
-.worldv .castle-wrap { width: min(100%, calc(var(--hubh) * .5417)); }
+/* fit the whole castle in the zone (its fixed bg is replaced by the zone's);
+   --worldh is the world's MEASURED height (JS), --hubh the css fallback */
+.worldv .castle-wrap { width: min(100%, calc(var(--worldh, var(--hubh)) * .5417)); }
 .worldv .castle-bg { display: none; }
 
 /* look-up affordance: a bobbing cloud with a chevron, top center of home */

@@ -131,11 +131,29 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
     // a beat, then fly up into the sky (the full swoop, on autopilot) — the
     // verse greets you at the summit. Any touch cancels the autopilot, and
     // returning from a room within the same session just lands on the castle.
-    el.scrollTop = max();
-    el.style.setProperty("--fly", "0");
     // class fallback for the opaque hub topbar (belt to the :has() suspenders)
     const shell = document.querySelector(".app-shell");
     shell && shell.classList.add("hubworld");
+    // size the world so the WHOLE hub (banner included) fits the viewport
+    // exactly under the header — the body never scrolls, so nothing ever
+    // hangs partway below the divider
+    const size = () => {
+      const bar = document.querySelector(".topbar");
+      const hub = el.closest(".hub-enter");
+      if (bar && hub) {
+        const sibs = [...hub.children].filter((c) => c !== el);
+        const extra = sibs.reduce((s, c) => {
+          const cs = getComputedStyle(c);
+          return s + c.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+        }, 0);
+        el.style.height = Math.max(360, Math.round(window.innerHeight - bar.getBoundingClientRect().bottom - extra)) + "px";
+      }
+      el.style.setProperty("--skyH", Math.round(el.clientHeight * 0.86) + "px");
+      el.style.setProperty("--worldh", el.clientHeight + "px");
+    };
+    size();
+    el.scrollTop = max();
+    el.style.setProperty("--fly", "0");
     let flyRaf = 0, flyTimer = 0;
     const cancelFlight = () => { cancelAnimationFrame(flyRaf); clearTimeout(flyTimer); el.style.scrollSnapType = ""; };
     if (!seenSkyThisLoad) {
@@ -170,8 +188,6 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
         el.addEventListener("touchstart", cancelFlight, { once: true, passive: true });
       }
     }
-    const size = () => el.style.setProperty("--skyH", Math.round(el.clientHeight * 0.86) + "px");
-    size();
     let raf = 0;
     const onScroll = () => {
       if (raf) return;
