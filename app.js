@@ -16,6 +16,7 @@ import { DailyShare, DailyHistory, useDailyNeedsMe } from "./daily.js";
 import { useRsvpNeeded } from "./events.js";
 import { pushStatus, enablePush, disablePush, ensurePush, notifyTurn } from "./push.js";
 import { CastleHub, ROOMS } from "./castle.js";
+import { GemQuestCard } from "./gemgame.js";
 import { get as idbGet, set as idbSet } from "https://esm.sh/idb-keyval@6";
 
 const html = htm.bind(h);
@@ -727,9 +728,12 @@ function Settle({ children, dir }) {
   return html`<div ref=${ref} class=${ready ? (dir > 0 ? "pane-from-r" : "pane-from-l") : "settling"}>${children}</div>`;
 }
 
-// 🎴 Game Room — Phase 10 and its lifetime scores, nothing else.
+// 🃏 Game Room — Phase 10 and Gem Quest side by side.
 function GameRoom(ctx) {
-  return html`<div data-noswipe><${PlayTab} ...${ctx} /></div>`;
+  return html`<div data-noswipe>
+    <${PlayTab} ...${ctx} />
+    <${GemQuestCard} client=${ctx.client} me=${ctx.me} players=${ctx.players} flash=${ctx.flash} />
+  </div>`;
 }
 
 // ☀️ Sunroom — the quiet corner: scripture, gratitude, the daily question.

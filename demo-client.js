@@ -66,6 +66,7 @@ function seed() {
       };
     }),
     todos: [],
+    gem_progress: [],
     push_subscriptions: [],
     date_ideas: [
       { id: uid(), label: "Sushi night", emoji: "🍣", category: "food", active: true, added_by: peaches, created_at: nowISO() },
@@ -147,6 +148,7 @@ const DEFAULTS = {
   social_links: { platform: "other", video_id: null, mode: "share", sender_id: null, recipient_id: null, note: null, seen_at: null, reactions: [], status: "active", archived_at: null },
   todos: { due_on: null, done: false, done_at: null, created_by: null },
   shopping_items: { label: "", meal_night: null, market: null, done: false, created_by: null },
+  gem_progress: { stars: 0, best_score: 0, updated_at: null },
   date_ideas: { emoji: "✨", category: "food", active: true, added_by: null },
   date_spins: { emoji: "✨", category: "food", spun_by: null },
   events: { emoji: "💗", starts_at: null, notes: null, location: null, kind: "invite", created_by: null, rsvp: "pending" },
