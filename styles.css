@@ -1638,10 +1638,13 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 @keyframes hubBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @keyframes hubWalk { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-6px) rotate(4deg); } }
 
-/* door swing: the leaf folds toward its hinge under the warm light */
-.castle-svg .leaf { transform-box: fill-box; transform-origin: left center;
-  transition: transform .26s cubic-bezier(.5,0,.8,.4); }
-.castle-svg .door.open .leaf { transform: scaleX(.14); }
+/* door open: the closed leaf melts away into the warm lit doorway (no squish —
+   scaleX reads wonky on round doors); the outline + glow stay behind it */
+.castle-svg .leaf { transform-box: fill-box; transform-origin: center;
+  transition: opacity .26s ease, transform .26s ease; }
+.castle-svg .door.open .leaf { opacity: 0; transform: scale(.9); }
+.castle-svg .door-glyph { transition: opacity .2s ease; }
+.castle-svg .door.open .door-glyph { opacity: 0; }
 
 /* the dive into the doorway — this transform lives ONLY on the hub, which
    unmounts before any room renders (the .gamefs containing-block rule) */

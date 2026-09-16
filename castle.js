@@ -11,15 +11,18 @@ const html = htm.bind(h);
    and badge anchors; app.js reads it for room titles too.
    viewBox is 0 0 390 720 (drawn under the ~64px sticky topbar). */
 
+/* Door bases sit ON their floor lines (292 / 456 / 592 / foyer 648) — windows
+   (observatory porthole, sunroom) and the hanging painting are the exceptions,
+   since windows and paintings live mid-wall. */
 export const ROOMS = {
-  gameroom: { label: "Game Room",   emoji: "🎴", door: { x: 48,  y: 470, w: 78,  h: 110 } },
+  gameroom: { label: "Game Room",   emoji: "🎴", door: { x: 48,  y: 482, w: 78,  h: 110 } },
   chapel:   { label: "Sunroom",     emoji: "☀️", door: { x: 286, y: 162, w: 52,  h: 94 } },
-  plans:    { label: "Ballroom",    emoji: "💃", door: { x: 224, y: 310, w: 104, h: 132 } },
-  map:      { label: "Observatory", emoji: "🔭", door: { x: 40,  y: 172, w: 62,  h: 62 } },
-  memories: { label: "Gallery",     emoji: "🖼️", door: { x: 56,  y: 314, w: 112, h: 116 } },
-  schmoney: { label: "Vault",       emoji: "💗", door: { x: 210, y: 478, w: 88,  h: 88 } },
-  joinme:   { label: "Garden",      emoji: "🌿", door: { x: 328, y: 486, w: 44,  h: 92 } },
-  more:     { label: "Workshop",    emoji: "🔧", door: { x: 168, y: 602, w: 54,  h: 40 } },
+  plans:    { label: "Ballroom",    emoji: "💃", door: { x: 224, y: 324, w: 104, h: 132 } },
+  map:      { label: "Observatory", emoji: "🔭", door: { x: 41,  y: 173, w: 60,  h: 60 } },
+  memories: { label: "Gallery",     emoji: "🖼️", door: { x: 56,  y: 316, w: 112, h: 112 } },
+  schmoney: { label: "Vault",       emoji: "💗", door: { x: 210, y: 498, w: 88,  h: 88 } },
+  joinme:   { label: "Garden",      emoji: "🌿", door: { x: 328, y: 500, w: 44,  h: 92 } },
+  more:     { label: "Workshop",    emoji: "🔧", door: { x: 168, y: 606, w: 54,  h: 40 } },
 };
 
 // door center in viewBox units — the avatar walk target (phase 2) + zoom origin
@@ -215,10 +218,10 @@ function CastleSVG({ opening, badges, onDoor }) {
 
     <!-- 🔭 Observatory: round porthole in the left tower -->
     <${Door} k="map" opening=${opening} badge=${badges.map} onDoor=${onDoor}>
-      <circle cx="71" cy="203" r="33" fill="#20344a" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
-      <circle cx="71" cy="203" r="33" fill="url(#c-glow)" class="doorlight" />
-      <circle cx="71" cy="203" r="25" fill="none" stroke="#b9852e" stroke-width="2" />
-      <text class="door-glyph" x="71" y="212" font-size="24">🔭</text>
+      <circle cx="71" cy="203" r="30" fill="#20344a" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
+      <circle cx="71" cy="203" r="30" fill="url(#c-glow)" class="doorlight" />
+      <circle cx="71" cy="203" r="22" fill="none" stroke="#b9852e" stroke-width="2" />
+      <text class="door-glyph" x="71" y="211" font-size="22">🔭</text>
     <//>
 
     <!-- ☀️ Sunroom: arched window in the right tower -->
@@ -230,58 +233,73 @@ function CastleSVG({ opening, badges, onDoor }) {
       <text class="door-glyph" x="312" y="228" font-size="22">☀️</text>
     <//>
 
-    <!-- 🖼 Gallery: the gilt painting you jump into -->
+    <!-- 🖼 Gallery: the gilt painting you jump into (frame stays; canvas lights) -->
     <${Door} k="memories" opening=${opening} badge=${badges.memories} onDoor=${onDoor}>
-      <rect x="56" y="314" width="112" height="116" rx="6" fill="#b9852e" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
-      <rect x="66" y="324" width="92" height="96" rx="3" fill="url(#c-paint)" />
-      <rect x="66" y="324" width="92" height="96" rx="3" fill="url(#c-glow)" class="doorlight" />
-      <path d="M66 398 q24 -26 46 -6 q22 20 46 -12 v40 h-92 Z" fill="#4c7a5e" />
-      <circle cx="140" cy="344" r="9" fill="#fdf6e3" />
+      <rect x="56" y="316" width="112" height="112" rx="6" fill="#b9852e" stroke="#3a2f28" stroke-width="2.5" />
+      <rect x="66" y="326" width="92" height="92" rx="3" fill="url(#c-paint)" class="leaf" />
+      <path d="M66 396 q24 -26 46 -6 q22 20 46 -12 v40 h-92 Z" fill="#4c7a5e" class="leaf" />
+      <circle cx="140" cy="346" r="9" fill="#fdf6e3" class="leaf" />
+      <rect x="66" y="326" width="92" height="92" rx="3" fill="url(#c-glow)" class="doorlight" />
       <text class="door-glyph" x="112" y="380" font-size="22">🖼️</text>
     <//>
 
-    <!-- 💃 Ballroom: tall double doors -->
+    <!-- 💃 Ballroom: tall double doors seated on the floor -->
     <${Door} k="plans" opening=${opening} badge=${badges.plans} onDoor=${onDoor}>
-      <path d="M224 442 v-104 a52 52 0 0 1 104 0 v104 Z" fill="#8a4a33" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
-      <path d="M224 442 v-104 a52 52 0 0 1 104 0 v104 Z" fill="url(#c-glow)" class="doorlight" />
-      <line x1="276" y1="338" x2="276" y2="442" stroke="#3a2f28" stroke-width="2" />
-      <circle cx="266" cy="394" r="3.5" fill="#e8c98f" /><circle cx="286" cy="394" r="3.5" fill="#e8c98f" />
-      <text class="door-glyph" x="276" y="404" font-size="24">💃</text>
-    <//>
-
-    <!-- 🎴 Game Room: arched door, card pediment -->
-    <${Door} k="gameroom" opening=${opening} badge=${badges.gameroom} onDoor=${onDoor}>
-      <path d="M48 580 v-72 a39 39 0 0 1 78 0 v72 Z" fill="#5b3b2c" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
-      <path d="M48 580 v-72 a39 39 0 0 1 78 0 v72 Z" fill="url(#c-glow)" class="doorlight" />
-      <circle cx="112" cy="544" r="3.5" fill="#e8c98f" />
-      <text class="door-glyph" x="87" y="552" font-size="24">🎴</text>
-    <//>
-
-    <!-- 💗 Vault: round door, heart keyhole -->
-    <${Door} k="schmoney" opening=${opening} badge=${badges.schmoney} onDoor=${onDoor}>
-      <circle cx="254" cy="522" r="44" fill="#7d8894" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
-      <circle cx="254" cy="522" r="44" fill="url(#c-glow)" class="doorlight" />
-      <circle cx="254" cy="522" r="33" fill="none" stroke="#5c6670" stroke-width="3" />
-      <circle cx="254" cy="522" r="44" fill="none" stroke="#b9852e" stroke-width="1.5" stroke-dasharray="3 7" />
-      <text class="door-glyph" x="254" y="532" font-size="24">💗</text>
-    <//>
-
-    <!-- 🌿 Garden: gate at the right edge -->
-    <${Door} k="joinme" opening=${opening} badge=${badges.joinme} onDoor=${onDoor}>
-      <path d="M328 578 v-64 a22 22 0 0 1 44 0 v64 Z" fill="#24404f" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
-      <path d="M328 578 v-64 a22 22 0 0 1 44 0 v64 Z" fill="url(#c-glow)" class="doorlight" />
-      <g stroke="#4c7a5e" stroke-width="3" stroke-linecap="round">
-        <path d="M334 578 v-58 M344 578 v-64 M356 578 v-64 M366 578 v-58" />
+      <path d="M224 456 v-102 a52 52 0 0 1 104 0 v102 Z" fill="url(#c-glow)" />
+      <g class="leaf">
+        <path d="M224 456 v-102 a52 52 0 0 1 104 0 v102 Z" fill="#8a4a33" stroke="#3a2f28" stroke-width="2.5" />
+        <line x1="276" y1="352" x2="276" y2="456" stroke="#3a2f28" stroke-width="2" />
+        <circle cx="266" cy="408" r="3.5" fill="#e8c98f" /><circle cx="286" cy="408" r="3.5" fill="#e8c98f" />
       </g>
-      <text class="door-glyph" x="350" y="552" font-size="20">🌿</text>
+      <path d="M224 456 v-102 a52 52 0 0 1 104 0 v102 Z" fill="none" stroke="#3a2f28" stroke-width="2.5" />
+      <text class="door-glyph" x="276" y="416" font-size="24">💃</text>
     <//>
 
-    <!-- 🔧 Workshop: basement hatch -->
+    <!-- 🎴 Game Room: arched door seated on the floor -->
+    <${Door} k="gameroom" opening=${opening} badge=${badges.gameroom} onDoor=${onDoor}>
+      <path d="M48 592 v-71 a39 39 0 0 1 78 0 v71 Z" fill="url(#c-glow)" />
+      <g class="leaf">
+        <path d="M48 592 v-71 a39 39 0 0 1 78 0 v71 Z" fill="#5b3b2c" stroke="#3a2f28" stroke-width="2.5" />
+        <circle cx="112" cy="556" r="3.5" fill="#e8c98f" />
+      </g>
+      <path d="M48 592 v-71 a39 39 0 0 1 78 0 v71 Z" fill="none" stroke="#3a2f28" stroke-width="2.5" />
+      <text class="door-glyph" x="87" y="564" font-size="24">🎴</text>
+    <//>
+
+    <!-- 💗 Vault: round door resting on the floor -->
+    <${Door} k="schmoney" opening=${opening} badge=${badges.schmoney} onDoor=${onDoor}>
+      <circle cx="254" cy="542" r="44" fill="url(#c-glow)" />
+      <g class="leaf">
+        <circle cx="254" cy="542" r="44" fill="#7d8894" stroke="#3a2f28" stroke-width="2.5" />
+        <circle cx="254" cy="542" r="33" fill="none" stroke="#5c6670" stroke-width="3" />
+        <circle cx="254" cy="542" r="44" fill="none" stroke="#b9852e" stroke-width="1.5" stroke-dasharray="3 7" />
+      </g>
+      <circle cx="254" cy="542" r="44" fill="none" stroke="#3a2f28" stroke-width="2.5" />
+      <text class="door-glyph" x="254" y="552" font-size="24">💗</text>
+    <//>
+
+    <!-- 🌿 Garden: gate at the right edge, seated on the floor -->
+    <${Door} k="joinme" opening=${opening} badge=${badges.joinme} onDoor=${onDoor}>
+      <path d="M328 592 v-62 a22 22 0 0 1 44 0 v62 Z" fill="url(#c-glow)" />
+      <g class="leaf">
+        <path d="M328 592 v-62 a22 22 0 0 1 44 0 v62 Z" fill="#24404f" stroke="#3a2f28" stroke-width="2.5" />
+        <g stroke="#4c7a5e" stroke-width="3" stroke-linecap="round">
+          <path d="M334 592 v-56 M344 592 v-62 M356 592 v-62 M366 592 v-56" />
+        </g>
+      </g>
+      <path d="M328 592 v-62 a22 22 0 0 1 44 0 v62 Z" fill="none" stroke="#3a2f28" stroke-width="2.5" />
+      <text class="door-glyph" x="350" y="566" font-size="20">🌿</text>
+    <//>
+
+    <!-- 🔧 Workshop: basement hatch in the foyer floor -->
     <${Door} k="more" opening=${opening} badge=${badges.more} onDoor=${onDoor}>
-      <rect x="168" y="602" width="54" height="40" rx="6" fill="#4a423a" stroke="#3a2f28" stroke-width="2.5" class="leaf" />
-      <rect x="168" y="602" width="54" height="40" rx="6" fill="url(#c-glow)" class="doorlight" />
-      <line x1="176" y1="612" x2="214" y2="612" stroke="#6a5f52" stroke-width="2" />
-      <text class="door-glyph" x="195" y="630" font-size="16">🔧</text>
+      <rect x="168" y="606" width="54" height="40" rx="6" fill="url(#c-glow)" />
+      <g class="leaf">
+        <rect x="168" y="606" width="54" height="40" rx="6" fill="#4a423a" stroke="#3a2f28" stroke-width="2.5" />
+        <line x1="176" y1="616" x2="214" y2="616" stroke="#6a5f52" stroke-width="2" />
+      </g>
+      <rect x="168" y="606" width="54" height="40" rx="6" fill="none" stroke="#3a2f28" stroke-width="2.5" />
+      <text class="door-glyph" x="195" y="634" font-size="16">🔧</text>
     <//>
 
     <!-- avatar rug -->
