@@ -197,7 +197,9 @@ function SkyLife() {
    recent gratitudes; live via realtime on the gratitudes table. ---- */
 function Shouts({ client, players }) {
   const [rows, setRows] = useState(null);
-  const [idx, setIdx] = useState(0);
+  const [idx, setIdx] = useState(0);                 // rotates through recent gratefuls
+  const [anchors, setAnchors] = useState(null);      // measured px positions of the spire windows
+  const boxRef = useRef(null);
   useEffect(() => {
     let live = true, ch = null;
     const load = async () => {
@@ -216,17 +218,38 @@ function Shouts({ client, players }) {
     return () => { live = false; clearInterval(iv); try { ch && client.removeChannel(ch); } catch {} };
   }, [client]);
 
+  // anchor by MEASURING the real rendered window elements — correct on every
+  // screen size, and stays correct if the castle art ever moves
+  useEffect(() => {
+    const measure = () => {
+      const box = boxRef.current;
+      const l = document.getElementById("spire-l"), r2 = document.getElementById("spire-r");
+      if (!box || !l || !r2) return;
+      const b = box.getBoundingClientRect();
+      const lb = l.getBoundingClientRect(), rb = r2.getBoundingClientRect();
+      setAnchors({
+        l: { x: lb.left + lb.width / 2 - b.left, y: lb.top - b.top },
+        r: { x: rb.left + rb.width / 2 - b.left, y: rb.top - b.top },
+      });
+    };
+    measure();
+    const t = setTimeout(measure, 350);              // after fonts/layout settle
+    window.addEventListener("resize", measure);
+    return () => { clearTimeout(t); window.removeEventListener("resize", measure); };
+  }, [rows]);
+
   if (!rows || !rows.length) return null;
-  const forPlayer = (p) => rows.filter((r) => r.created_by === p.id);
   const bubbles = [players[0], players[1]].map((p, side) => {
-    const mine = forPlayer(p);
+    const mine = rows.filter((r) => r.created_by === p.id);
     if (!mine.length) return null;
     const g = mine[idx % mine.length];
     const text = g.text.length > 72 ? g.text.slice(0, 70).trimEnd() + "…" : g.text;
     return { side, emoji: p.emoji, text, key: g.id };
   });
-  return html`<div class="shouts" aria-hidden="true">
-    ${bubbles.map((b) => b && html`<div key=${b.key} class=${`shout ${b.side ? "right" : "left"}`}>
+  if (!bubbles.some(Boolean)) return null;
+  return html`<div class="shouts" aria-hidden="true" ref=${boxRef}>
+    ${bubbles.map((b) => b && anchors && html`<div key=${b.key} class=${`shout ${b.side ? "right" : "left"}`}
+      style=${`left:${(b.side ? anchors.r : anchors.l).x.toFixed(1)}px; top:${((b.side ? anchors.r : anchors.l).y + 6).toFixed(1)}px`}>
       <span class="shout-emoji">${b.emoji}</span>
       <span class="shout-text">“${b.text}”</span>
     </div>`)}
@@ -310,9 +333,9 @@ function CastleSVG({ opening, badges, onDoor }) {
 
     <!-- 📣 spire windows — where the gratitude shouts come from -->
     <g>
-      <path d="M85 178 v-14 a10 10 0 0 1 20 0 v14 Z" fill="#ffe9b8" stroke="#d9a173" stroke-width="1.8" />
+      <path id="spire-l" d="M85 178 v-14 a10 10 0 0 1 20 0 v14 Z" fill="#ffe9b8" stroke="#d9a173" stroke-width="1.8" />
       <line x1="95" y1="156" x2="95" y2="178" stroke="#d9a173" stroke-width="1.2" />
-      <path d="M285 178 v-14 a10 10 0 0 1 20 0 v14 Z" fill="#ffe9b8" stroke="#d9a173" stroke-width="1.8" />
+      <path id="spire-r" d="M285 178 v-14 a10 10 0 0 1 20 0 v14 Z" fill="#ffe9b8" stroke="#d9a173" stroke-width="1.8" />
       <line x1="295" y1="156" x2="295" y2="178" stroke="#d9a173" stroke-width="1.2" />
     </g>
     <!-- rose window, top center -->
