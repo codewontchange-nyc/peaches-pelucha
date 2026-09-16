@@ -493,7 +493,7 @@ function App({ client, onResetCreds }) {
       ${hub
         ? html`<div class="hub-enter">
             <${BirthdayBanner} me=${me} players=${players} />
-            <${CastleHub} me=${me} balances=${balances} onEnter=${goTab}
+            <${CastleHub} client=${client} players=${players} me=${me} balances=${balances} onEnter=${goTab}
               badges=${{ memories: memUnseen ? "✨" : null, chapel: dailyNeedsMe,
                          plans: rsvpNeeded ? "💌" : null, schmoney: giftsToDeliver ? "🎁" : null }} />
           </div>`

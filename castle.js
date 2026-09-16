@@ -41,7 +41,7 @@ export const doorCenter = (key) => {
    open/zoom are ignored; backgrounding mid-walk settles back to idle.
    Reduced motion short-circuits to a 120ms door brighten. */
 const RUG = { x: 195, y: 684 };   // on the lawn, below the castle steps
-export function CastleHub({ me, balances, badges = {}, onEnter }) {
+export function CastleHub({ client, players = [], me, balances, badges = {}, onEnter }) {
   const [opening, setOpening] = useState(null);
   const [zoom, setZoom] = useState(null);            // {ox, oy} px transform-origin
   const [pos, setPos] = useState(RUG);               // avatar, viewBox units
@@ -117,6 +117,7 @@ export function CastleHub({ me, balances, badges = {}, onEnter }) {
     <div class="castle-bg"></div>
     <${CastleSVG} opening=${opening} badges=${badges} onDoor=${onDoor} />
     <${SkyLife} />
+    ${client && players.length >= 2 && html`<${Shouts} client=${client} players=${players} />`}
     <div class=${`hub-avatar ${walking ? "walking" : ""} ${opening ? "entering" : ""}`}
       style=${`left:${(pos.x / 390 * 100).toFixed(2)}%; top:${(pos.y / 720 * 100).toFixed(2)}%; transition-duration:${walking ? walkMs : 0}ms`}>
       <span style=${`transform:scaleX(${face})`}><i>${(me && me.emoji) || "💗"}</i></span>
@@ -187,6 +188,48 @@ function SkyLife() {
         <path d="M25 78 l-6 -3 l2 7 Z" fill="#c4a6ff" stroke="#111" stroke-width="1.6" />
       </g>
     </svg>
+  </div>`;
+}
+
+/* ---- 📣 gratitude shouts: each player yells what they're grateful for
+   from their own spire window — cartoon speech bubbles over the towers.
+   players[0] gets the LEFT tower, players[1] the RIGHT. Rotates through
+   recent gratitudes; live via realtime on the gratitudes table. ---- */
+function Shouts({ client, players }) {
+  const [rows, setRows] = useState(null);
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    let live = true, ch = null;
+    const load = async () => {
+      try {
+        const { data } = await client.from("gratitudes").select("*").order("created_at", { ascending: false }).limit(30);
+        if (live) setRows(data || []);
+      } catch {}
+    };
+    load();
+    try {
+      ch = client.channel("pp-shouts")
+        .on("postgres_changes", { event: "*", schema: "public", table: "gratitudes" }, () => load())
+        .subscribe();
+    } catch {}
+    const iv = setInterval(() => setIdx((i) => i + 1), 8000);
+    return () => { live = false; clearInterval(iv); try { ch && client.removeChannel(ch); } catch {} };
+  }, [client]);
+
+  if (!rows || !rows.length) return null;
+  const forPlayer = (p) => rows.filter((r) => r.created_by === p.id);
+  const bubbles = [players[0], players[1]].map((p, side) => {
+    const mine = forPlayer(p);
+    if (!mine.length) return null;
+    const g = mine[idx % mine.length];
+    const text = g.text.length > 72 ? g.text.slice(0, 70).trimEnd() + "…" : g.text;
+    return { side, emoji: p.emoji, text, key: g.id };
+  });
+  return html`<div class="shouts" aria-hidden="true">
+    ${bubbles.map((b) => b && html`<div key=${b.key} class=${`shout ${b.side ? "right" : "left"}`}>
+      <span class="shout-emoji">${b.emoji}</span>
+      <span class="shout-text">“${b.text}”</span>
+    </div>`)}
   </div>`;
 }
 
@@ -265,6 +308,13 @@ function CastleSVG({ opening, badges, onDoor }) {
     <line x1="295" y1="58" x2="295" y2="38" stroke="#b96f4e" stroke-width="2" />
     <path d="M295 38 L318 45 L295 52 Z" fill="#ff8fa3" />
 
+    <!-- 📣 spire windows — where the gratitude shouts come from -->
+    <g>
+      <path d="M85 178 v-14 a10 10 0 0 1 20 0 v14 Z" fill="#ffe9b8" stroke="#d9a173" stroke-width="1.8" />
+      <line x1="95" y1="156" x2="95" y2="178" stroke="#d9a173" stroke-width="1.2" />
+      <path d="M285 178 v-14 a10 10 0 0 1 20 0 v14 Z" fill="#ffe9b8" stroke="#d9a173" stroke-width="1.8" />
+      <line x1="295" y1="156" x2="295" y2="178" stroke="#d9a173" stroke-width="1.2" />
+    </g>
     <!-- rose window, top center -->
     <circle cx="195" cy="196" r="20" fill="#ffd9cf" stroke="#e07a5f" stroke-width="2" />
     <circle cx="195" cy="196" r="12" fill="none" stroke="#e07a5f" stroke-width="1.4" />

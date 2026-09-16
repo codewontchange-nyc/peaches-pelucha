@@ -1812,3 +1812,34 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .gemfs-turn-side { font-size: 11.5px; opacity: .85; }
 @media (prefers-reduced-motion: reduce) { .gemfs.fever, .gemfs-boss, .gemfs-boss.exposed .gemfs-boss-face { animation: none; } }
 .gemstop.boss { background: #3d5670; border-color: #22344a; }
+
+/* 📣 gratitude shouts — cartoon speech bubbles from the spire windows.
+   Anchored over each tower; outlined tail points down at the window;
+   pop in from the tail whenever the message rotates. */
+.shouts { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.shout { position: absolute; max-width: 46%; background: #fffdfb;
+  border: 2px solid #d9a173; border-radius: 14px; padding: 7px 11px 8px;
+  box-shadow: 0 4px 12px -4px rgba(138,90,68,.35);
+  font-size: 11.5px; line-height: 1.45; color: #4a3529;
+  animation: shoutPop .5s var(--spring) both; }
+.shout::after { content: ""; position: absolute; bottom: -8px; width: 13px; height: 13px;
+  background: #fffdfb; border-right: 2px solid #d9a173; border-bottom: 2px solid #d9a173;
+  transform: rotate(45deg); }
+/* bubble centers sit over their spires, so a centered tail points straight
+   down at the window */
+.shout.left { left: 3.5%; top: 21.5%; transform-origin: 50% 110%; }
+.shout.left::after { left: calc(50% - 7px); }
+.shout.right { right: 3.5%; top: 21.5%; transform-origin: 50% 110%; }
+.shout.right::after { left: calc(50% - 7px); }
+.shout.left { transform: translateY(-100%); }
+.shout.right { transform: translateY(-100%); }
+.shout-emoji { position: absolute; top: -11px; left: -9px; font-size: 17px;
+  filter: drop-shadow(0 2px 3px rgba(138,90,68,.35)); }
+.shout.right .shout-emoji { left: auto; right: -9px; }
+.shout-text { font-family: var(--serif); font-style: italic; }
+@keyframes shoutPop {
+  0% { opacity: 0; transform: translateY(-100%) scale(.3); }
+  70% { opacity: 1; transform: translateY(-100%) scale(1.06); }
+  100% { opacity: 1; transform: translateY(-100%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .shout { animation: none; } }
