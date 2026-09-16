@@ -209,37 +209,43 @@ function makeSprites(px, themeEmoji) {
   };
 }
 
-/* 🎯 journey ammo: pellets charge over time on this phone — +1 every 6h up
-   to 3 (starts with 1). A couple's consumable: lost localStorage just means
-   a free refill, never a wipeout. Duel ammo lives in the run itself. */
-const AMMO_CAP = 3, AMMO_REGEN_MS = 6 * 3600 * 1000;
-function ammoRead() {
+/* 🎯 journey ammo: pellets are EARNED, never timed. Every point scored
+   feeds a charge meter (combos feed it extra), a full meter mints a pellet,
+   and once spent you're simply back to earning. The cost scales with how
+   many you already hold — 600 / 1200 / 2400 pts for your 1st / 2nd / 3rd
+   (cap 3) — so an empty pouch refills fast but a full one is a grind.
+   Stored per phone in localStorage; duel ammo lives in the run itself. */
+const AMMO_CAP = 3;
+const AMMO_COST = [600, 1200, 2400];
+export const ammoNeed = (n) => AMMO_COST[Math.min(Math.max(0, n), AMMO_CAP - 1)];
+function ammoState() {
   try {
     let s = JSON.parse(localStorage.getItem("pp.gq.ammo") || "null");
-    if (!s || typeof s.n !== "number") s = { n: 1, t: Date.now() };
-    while (s.n < AMMO_CAP && Date.now() - s.t >= AMMO_REGEN_MS) { s.n++; s.t += AMMO_REGEN_MS; }
-    if (s.n >= AMMO_CAP) { s.n = AMMO_CAP; s.t = Date.now(); }
-    localStorage.setItem("pp.gq.ammo", JSON.stringify(s));
-    return s.n;
-  } catch { return 1; }
+    if (!s || typeof s.n !== "number") s = { n: 1, fill: 0 };
+    if (typeof s.fill !== "number") s = { n: s.n, fill: 0 };   // migrate the old timer store
+    s.n = Math.max(0, Math.min(AMMO_CAP, s.n | 0));
+    s.fill = Math.max(0, s.fill | 0);
+    return s;
+  } catch { return { n: 1, fill: 0 }; }
 }
-function ammoSpend() {
-  try {
-    const s = JSON.parse(localStorage.getItem("pp.gq.ammo") || "null") || { n: 1, t: Date.now() };
-    const wasFull = s.n >= AMMO_CAP;
-    s.n = Math.max(0, s.n - 1);
-    if (wasFull) s.t = Date.now();               // the regen clock starts on leaving full
-    localStorage.setItem("pp.gq.ammo", JSON.stringify(s));
-    return s.n;
-  } catch { return 0; }
+function ammoSave(s) { try { localStorage.setItem("pp.gq.ammo", JSON.stringify({ n: s.n, fill: s.fill })); } catch {} }
+function ammoRead() { return ammoState(); }
+function ammoSpend() { const s = ammoState(); s.n = Math.max(0, s.n - 1); ammoSave(s); return s; }
+// pts + combo → meter → pellets. Pure mint loop (exported for tests);
+// overflow carries toward the next pellet, and the meter idles at cap.
+export function ammoMint(s, pts, combo) {
+  let minted = 0;
+  if (s.n >= AMMO_CAP) return { n: s.n, fill: 0, minted };
+  let fill = s.fill + Math.max(0, pts | 0) + (combo >= 2 ? 60 * (combo - 1) : 0);
+  let n = s.n;
+  while (n < AMMO_CAP && fill >= AMMO_COST[n]) { fill -= AMMO_COST[n]; n++; minted++; }
+  if (n >= AMMO_CAP) fill = 0;
+  return { n, fill, minted };
 }
-function ammoEta() {
-  try {
-    const s = JSON.parse(localStorage.getItem("pp.gq.ammo") || "null");
-    const ms = Math.max(0, AMMO_REGEN_MS - (Date.now() - ((s && s.t) || Date.now())));
-    const h = ms / 3600000;
-    return h >= 1 ? Math.ceil(h) + "h" : Math.max(1, Math.ceil(ms / 60000)) + "m";
-  } catch { return ""; }
+function ammoCharge(pts, combo) {
+  const s = ammoMint(ammoState(), pts, combo);
+  ammoSave(s);
+  return s;
 }
 
 /* ================= the playable surface (gamefs) ======================== */
@@ -256,7 +262,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
   const [bossUi, setBossUi] = useState(null);        // {hp, maxHp, exposed, hitN}
   const [turn, setTurn] = useState(0);               // duel: whose sky it is
   const [muted, setMuted] = useState(snd.muted);
-  const [ammo, setAmmo] = useState(() => (duel ? 1 : ammoRead()));   // journey stock (duel reads the run)
+  const [ammo, setAmmo] = useState(() => (duel ? null : ammoRead()));   // journey {n, fill} (duel reads the run)
   const [duelAmmo, setDuelAmmo] = useState([1, 1]);  // duel: pellets left per player
   const [armed, setArmed] = useState(false);         // next shot is the 🎯 pellet
   const armedRef = useRef(false); armedRef.current = armed;
@@ -277,7 +283,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
     };
     setHud({ score: 0, misses: 0, moveEvery: run.moveEvery, cur: run.cur, next: run.next, ...(duel ? duelCounts(run.rows) : {}) });
     setCombo(0); setFever(false); setTurn(0); setArmed(false);
-    setAmmo(duel ? 1 : ammoRead());
+    setAmmo(duel ? null : ammoRead());
     if (duel) setDuelAmmo([1, 1]);
     setBossUi(run.boss ? { hp: run.boss.hp, maxHp: run.boss.maxHp, exposed: false, hitN: 0 } : null);
     setPhase("play");
@@ -756,6 +762,16 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
     // duel when that player's pellet is gone)
     const wantAmmo = armedRef.current;
     const { run, events } = G.applyShot(st.run, { t: "shot", a: angleMil, ...(wantAmmo ? { ammo: true } : {}) });
+    // 🎯 the meter: every point a NORMAL journey shot scores charges the
+    // pouch (combos charge extra); a full meter mints the next pellet
+    if (!duel && !wantAmmo) {
+      const delta = run.score - st.run.score;
+      if (delta > 0 || run.combo >= 2) {
+        const res = ammoCharge(delta, run.combo);
+        if (res.minted) st.popups.push({ x: G.WUNITS / 2, y: G.LAUNCH_Y - 3 * G.R, txt: "+1 🎯 earned!", t: 0, color: "#c15f3c" });
+        setAmmo(res);
+      }
+    }
     if (wantAmmo) {
       if (events.some((e) => e.t === "zap")) {       // pellet landed: spend + disarm
         setArmed(false);
@@ -879,31 +895,35 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
     </div>`}
     <div class="gemfs-hud">
       <span class="gemfs-pips">${hud && hud.moveEvery < 99 ? Array.from({ length: hud.moveEvery }, (_, i) => html`<i key=${i} class=${i < pips ? "on" : ""}></i>`) : ""}</span>
-      ${(() => {
-        const n = duel ? duelAmmo[turn] : ammo;
-        return html`<button class=${`gemfs-ammo ${armed ? "on" : ""}`} disabled=${n <= 0}
-          title="ammo: knocks out whatever it hits"
-          onClick=${() => { if (n > 0) setArmed((v) => !v); }}>
-          🎯${n > 0 ? `×${n}` : duel ? " used" : ` ${ammoEta()}`}
-        </button>`;
-      })()}
       ${S.current && S.current.run.mods.length > 0 && html`<span class="gemfs-mods">${S.current.run.mods.map((m) => html`<em key=${m}>${m}</em>`)}</span>`}
-      <button class="gemfs-next" onClick=${swap} title="Swap">
-        next ${(() => {
-          const n = (hud && hud.next) || "0";
-          if (duel) {
-            const spec = POOL[n] || POOL["0"];
-            const bg = spec.stripe ? `linear-gradient(180deg,#fdfaf4 0 26%,${spec.hue} 26% 74%,#fdfaf4 74% 100%)` : spec.hue;
-            return html`<span class="gemdot" style=${`background:${bg}`}></span>`;
-          }
-          if (n === "W") return html`<span class="gememoji">🌈</span>`;
-          const set = S.current && S.current.run.shapeMode ? SHAPEMOJI : (S.current ? S.current.theme.emoji : THEMES[0].emoji);
-          return html`<span class="gememoji">${set[parseInt(G.colorOf(n) ?? "0", 10) % set.length]}</span>`;
-        })()} ⇄
-      </button>
     </div>
     <div class="gemfs-stage" ref=${wrapRef}>
       <canvas ref=${cvRef}></canvas>
+      <div class="gemfs-lowbar">
+        ${(() => {
+          const n = duel ? duelAmmo[turn] : ammo ? ammo.n : 0;
+          const meter = duel || !ammo || ammo.n >= AMMO_CAP ? 100 : Math.min(100, Math.round(100 * ammo.fill / ammoNeed(ammo.n)));
+          return html`<button class=${`gemfs-ammo ${armed ? "on" : ""} ${duel ? "" : "charge"}`} disabled=${n <= 0}
+            style=${duel ? "" : `--ammofill:${meter}%`}
+            title="ammo: knocks out whatever it hits — earn more with points & combos"
+            onClick=${() => { if (n > 0) setArmed((v) => !v); }}>
+            🎯${n > 0 ? `×${n}` : duel ? " used" : ""}
+          </button>`;
+        })()}
+        <button class="gemfs-next" onClick=${swap} title="Swap">
+          next ${(() => {
+            const n = (hud && hud.next) || "0";
+            if (duel) {
+              const spec = POOL[n] || POOL["0"];
+              const bg = spec.stripe ? `linear-gradient(180deg,#fdfaf4 0 26%,${spec.hue} 26% 74%,#fdfaf4 74% 100%)` : spec.hue;
+              return html`<span class="gemdot" style=${`background:${bg}`}></span>`;
+            }
+            if (n === "W") return html`<span class="gememoji">🌈</span>`;
+            const set = S.current && S.current.run.shapeMode ? SHAPEMOJI : (S.current ? S.current.theme.emoji : THEMES[0].emoji);
+            return html`<span class="gememoji">${set[parseInt(G.colorOf(n) ?? "0", 10) % set.length]}</span>`;
+          })()} ⇄
+        </button>
+      </div>
       ${intro && html`<div class="gemfs-intro">
         <div class="gemfs-intro-title">${intro.title}</div>
         <div class="gemfs-intro-sub">${intro.sub}</div>

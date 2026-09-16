@@ -1732,12 +1732,22 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .gemfs-next { border: 1px solid rgba(217,161,115,.5); background: rgba(255,255,255,.72); color: #8a5a44;
   border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px; }
-/* 🎯 the ammo chip — armed state glows terracotta so the next shot reads hot */
-.gemfs-ammo { border: 1px solid rgba(217,161,115,.5); background: rgba(255,255,255,.72); color: #8a5a44;
-  border-radius: 999px; padding: 5px 11px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+/* thumb row: 🎯 ammo (left) + next-swap (right) sit at the BOTTOM of the
+   stage, flanking the bear — the bar itself never eats aim drags */
+.gemfs-lowbar { position: absolute; left: 12px; right: 12px; bottom: 10px; z-index: 3;
+  display: flex; justify-content: space-between; align-items: flex-end; pointer-events: none; }
+.gemfs-lowbar .gemfs-ammo, .gemfs-lowbar .gemfs-next { pointer-events: auto; }
+/* 🎯 the ammo chip — armed state glows terracotta so the next shot reads hot;
+   the little underline is the charge meter (points + combos fill it) */
+.gemfs-ammo { position: relative; border: 1px solid rgba(217,161,115,.5); background: rgba(255,255,255,.85); color: #8a5a44;
+  border-radius: 999px; padding: 6px 12px 7px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.gemfs-ammo.charge::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 3.5px;
+  height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, #c15f3c var(--ammofill, 0%), rgba(193,95,60,.16) 0); }
 .gemfs-ammo.on { background: #c15f3c; border-color: #c15f3c; color: #fdf6e3;
   box-shadow: 0 0 0 3px rgba(193,95,60,.25); animation: ammopulse 1.2s ease-in-out infinite; }
-.gemfs-ammo:disabled { opacity: .55; cursor: default; }
+.gemfs-ammo.on.charge::after { background: linear-gradient(90deg, #fdf6e3 var(--ammofill, 0%), rgba(253,246,227,.25) 0); }
+.gemfs-ammo:disabled { opacity: .6; cursor: default; }
 @keyframes ammopulse { 50% { box-shadow: 0 0 0 6px rgba(193,95,60,.12); } }
 @media (prefers-reduced-motion: reduce) { .gemfs-ammo.on { animation: none; } }
 .gemdot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; box-shadow: inset 0 -2px 3px rgba(0,0,0,.18); }
