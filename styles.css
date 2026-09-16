@@ -940,6 +940,11 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .app-shell.cool .topbar { margin-left: 0; margin-right: 0;
   background: rgba(255,251,244,.86); border-bottom: 1px solid rgba(217,161,115,.35);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+/* on the hub (sky/castle world) the bar is OPAQUE: anything scrolling under
+   it dies exactly at the divider instead of ghosting through the glass */
+.app-shell.cool:has(.worldv) .topbar { background: #fffbf4;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  border-bottom-color: rgba(185,111,78,.45); }
 .app-shell.cool .brand.script { color: #8a5a44; }
 
 /* journal-flip page transition (replays on tab change via key=tab) */
