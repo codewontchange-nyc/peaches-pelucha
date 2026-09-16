@@ -1,7 +1,7 @@
 // Service worker for Peaches & Pelucha.
 // Strategy: cache the app shell so it installs and opens instantly / offline.
 // (Live data still needs a connection — that's Supabase, never cached.)
-const CACHE = "pp-v175";
+const CACHE = "pp-v176";
 // Separate, long-lived cache for memory IMAGE media (thumbnails + full photos).
 // Survives shell-version bumps; self-evicts oldest entries past the cap so it
 // never blows the device quota. Videos are NOT cached here — they stream.
@@ -43,6 +43,12 @@ const SHELL = [
   "./map.js",
   "./config.js",
   "./manifest.webmanifest",
+  "./sounds/hit1.m4a",
+  "./sounds/hit2.m4a",
+  "./sounds/roll1.m4a",
+  "./sounds/roll2.m4a",
+  "./sounds/roll3.m4a",
+  "./sounds/roll4.m4a",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",

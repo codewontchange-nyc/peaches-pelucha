@@ -75,18 +75,64 @@ const snd = {
     src.connect(f).connect(g2).connect(ctx.destination);
     src.start(t0);
   },
-  // 🎱 pool acoustics via MODAL synthesis: a resin ball click is a handful of
-  // pure high partials dying in ~40ms — no noise (noise = static = annoying).
-  // Everything short, quiet, and round.
-  clack(vol = 0.13, when = 0) {
-    [[2600, 0.5], [3950, 0.3], [5300, 0.18]].forEach(([f, a]) => this.tone(f, 0.045, "sine", vol * a, when));
-    this.tone(165, 0.035, "sine", vol * 0.7, when);       // the body of the hit
+  /* 🎱 pool acoustics: REAL recorded samples (sounds/hit*.m4a, roll*.m4a —
+     trimmed + mono AAC, ~100KB total). Loaded lazily when a duel starts;
+     random clip + slight rate jitter so repeats never sound identical.
+     Falls back to soft modal clicks until buffers are decoded. */
+  buffers: {}, loading: false, rollSrc: null,
+  loadSamples() {
+    if (this.loading || this.buffers.hit) return;
+    this.loading = true;
+    const ctx = this.ensure(); if (!ctx) { this.loading = false; return; }
+    const grab = async (name, files) => {
+      const out = [];
+      for (const f of files) {
+        try {
+          const ab = await fetch(f).then((r) => r.arrayBuffer());
+          out.push(await ctx.decodeAudioData(ab));
+        } catch {}
+      }
+      if (out.length) this.buffers[name] = out;
+    };
+    Promise.all([
+      grab("hit", ["sounds/hit1.m4a", "sounds/hit2.m4a"]),
+      grab("roll", ["sounds/roll1.m4a", "sounds/roll2.m4a", "sounds/roll3.m4a", "sounds/roll4.m4a"]),
+    ]).finally(() => { this.loading = false; });
   },
-  cushion() { this.tone(110, 0.08, "sine", 0.1); },       // one soft felt thump
+  sample(name, { vol = 0.5, rate = 1, maxDur = 0, when = 0 } = {}) {
+    const ctx = this.muted ? null : this.ensure(); if (!ctx) return null;
+    const set = this.buffers[name]; if (!set || !set.length) return null;
+    const buf = set[Math.floor(Math.random() * set.length)];
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    src.playbackRate.value = rate * (0.95 + Math.random() * 0.1);
+    const g2 = ctx.createGain();
+    const t0 = ctx.currentTime + when;
+    g2.gain.setValueAtTime(vol, t0);
+    src.connect(g2).connect(ctx.destination);
+    src.start(t0);
+    if (maxDur && buf.duration > maxDur) {
+      g2.gain.setValueAtTime(vol, t0 + maxDur - 0.25);
+      g2.gain.linearRampToValueAtTime(0.0001, t0 + maxDur);
+      src.stop(t0 + maxDur + 0.02);                       // stop only AFTER start
+    }
+    return src;
+  },
+  clack(vol = 0.13, when = 0) {
+    if (this.sample("hit", { vol: Math.min(0.8, vol * 4), when })) return;
+    [[2600, 0.5], [3950, 0.3], [5300, 0.18]].forEach(([f, a]) => this.tone(f, 0.045, "sine", vol * a, when));
+    this.tone(165, 0.035, "sine", vol * 0.7, when);
+  },
+  cushion() {
+    if (this.sample("hit", { vol: 0.22, rate: 0.78 })) return;
+    this.tone(110, 0.08, "sine", 0.1);
+  },
   pocket(n = 3) {
+    // one roll at a time — stop the previous so pops never stack into a din
+    try { this.rollSrc && this.rollSrc.stop(); } catch {}
+    this.rollSrc = this.sample("roll", { vol: 0.4, maxDur: n >= 4 ? 2.2 : 1.4 });
+    if (this.rollSrc) { this.sample("hit", { vol: 0.35 }); return; }
     this.clack(0.11);
-    if (n >= 4) this.clack(0.07, 0.09);                   // big drops get one echo, not a rattle
-    this.tone(78, 0.2, "sine", 0.1, 0.05);                // roll into the pocket
+    this.tone(78, 0.2, "sine", 0.1, 0.05);
   },
   pop(combo, size) { const base = Math.min(PENT.length - 1, (combo - 1) * 2); this.tone(PENT[base], 0.2, "triangle", 0.18); if (size >= 5) this.tone(PENT[Math.min(PENT.length - 1, base + 2)], 0.24, "triangle", 0.14, 0.06); },
   thunk() { this.tone(120, 0.09, "sine", 0.12); },
@@ -170,6 +216,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
     coolLeft: rows.flat().filter((v) => G.colorOf(v) != null && G.COOL.includes(G.colorOf(v))).length,
   });
   const boot = useCallback((lvl) => {
+    if (duel) snd.loadSamples();                   // real billiard clips, decoded once
     const run = duel ? G.newDuelRun(lvl) : G.newRun(JOURNEY_SEED, lvl);
     S.current = {
       run, theme: duel ? THEMES[0] : themeFor(JOURNEY_SEED, lvl),   // duel = colored hearts: 🔥❤️💛🧡 vs ❄️💚💙💜
