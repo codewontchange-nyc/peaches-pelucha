@@ -581,7 +581,9 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel }) {
     ensureRaf();
     // watchdog: never let a stalled playback strand the board
     clearTimeout(st.watchdog);
-    st.watchdog = setTimeout(() => { const s2 = S.current; if (s2 && s2.pending) { s2.queue = []; s2.anim = null; finishAnim(); } }, 2600);
+    // must outlast the LONGEST possible event chain (boss defeat 1s + clear
+    // celebration .9s + flight/falls) — snapping mid-fireworks was possible at 2.6s
+    st.watchdog = setTimeout(() => { const s2 = S.current; if (s2 && s2.pending) { s2.queue = []; s2.anim = null; finishAnim(); } }, 4200);
   }, [nextEvent, finishAnim]);
 
   const swap = useCallback(() => {

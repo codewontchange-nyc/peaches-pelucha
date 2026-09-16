@@ -133,6 +133,9 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const CLOUD_PATH = "M24 62 C11 62 5 52 12 43 C6 33 18 26 28 32 C30 17 50 13 58 25 C65 11 89 13 90 31 C107 29 115 45 103 55 C109 64 96 67 88 63 C80 67 32 67 24 62 Z";
 
 function SkyLife() {
+  // All flight is TRANSFORM-only (translateX in vw ≈ the wrap width on
+  // phones) — no left/top keyframes, so the sky never triggers layout and
+  // stays on the compositor. Vertical positions are static `top`s.
   const clouds = useMemo(() => Array.from({ length: 3 }, () => {
     const dur = rnd(85, 165);
     return { top: `${rnd(1, 16).toFixed(1)}%`, width: `${rnd(9, 18).toFixed(1)}%`,
@@ -143,13 +146,14 @@ function SkyLife() {
     for (let f = 0; f < 2; f++) {
       const n = f === 0 ? 3 : 1 + Math.floor(Math.random() * 2);
       const ltr = Math.random() < 0.5, dur = rnd(38, 72), delay = -rnd(0, dur);
-      const yy = rnd(3, 17), drift = rnd(-4, 4), sz = rnd(1.4, 2.1), dx = ltr ? 112 : -112;
+      const yy = rnd(3, 17), drift = rnd(-4, 4), sz = rnd(1.4, 2.1), dx = ltr ? 118 : -118;
       for (let i = 0; i < n; i++) {
         const off = i * sz * 0.9 * (ltr ? -1 : 1);
         const vy = i === 0 ? 0 : (i % 2 ? -1 : 1) * Math.ceil(i / 2) * sz * 0.4;
-        const x0 = (ltr ? -6 : 106) + off;
-        out.push({ "--bx0": `${x0.toFixed(1)}%`, "--bx1": `${(x0 + dx).toFixed(1)}%`,
-          "--by0": `${(yy + vy).toFixed(1)}%`, "--by1": `${(yy + vy + drift).toFixed(1)}%`,
+        const x0 = (ltr ? -8 : 108) + off;
+        out.push({ top: `${(yy + vy).toFixed(1)}%`,
+          "--bx0": `${x0.toFixed(1)}vw`, "--bx1": `${(x0 + dx).toFixed(1)}vw`,
+          "--bdy": `${(drift * 1.85).toFixed(1)}vw`,
           "--dur": `${dur.toFixed(0)}s`, "--delay": `${delay.toFixed(1)}s`,
           "--flap": `${rnd(0.5, 0.85).toFixed(2)}s`, "--flapd": `-${rnd(0, 0.8).toFixed(2)}s`,
           width: `${sz.toFixed(2)}%` });

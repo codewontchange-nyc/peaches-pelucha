@@ -13,10 +13,8 @@ import { MemoryThread } from "./comments.js";
 import { RewardHome, RewardStrip, useGiftsToDeliver } from "./rewards.js";
 import { FightMode, FightToggle } from "./fight.js";
 import { DailyShare, DailyHistory, useDailyNeedsMe } from "./daily.js";
-import { useRsvpNeeded } from "./events.js";
 import { pushStatus, enablePush, disablePush, ensurePush, notifyTurn } from "./push.js";
 import { CastleHub, ROOMS } from "./castle.js";
-import { GemQuestCard } from "./gemgame.js";
 import { get as idbGet, set as idbSet } from "https://esm.sh/idb-keyval@6";
 
 const html = htm.bind(h);
@@ -31,12 +29,36 @@ function lazyTab(loader, name) {
   };
 }
 const MemoriesTab = lazyTab(() => import("./memories.js"), "MemoriesTab");
+const GemQuestCard = lazyTab(() => import("./gemgame.js"), "GemQuestCard");
 const PlansTab = lazyTab(() => import("./events.js"), "PlansTab");
 const MapTab = lazyTab(() => import("./map.js"), "MapCard");
 const JoinMe = lazyTab(() => import("./joinme.js"), "JoinMe");
 
 // Navigation is the castle (castle.js): every room is a door in the hub, and
 // ROOMS is the registry — labels/emoji for the topbar come from there too.
+
+// 🏰 ballroom door badge: upcoming invites awaiting MY answer. Lives here
+// (not in events.js) so the whole calendar module stays lazy-loaded.
+function useRsvpNeeded(client, me) {
+  const [n, setN] = useState(0);
+  const load = useCallback(async () => {
+    try {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const { data } = await client.from("events").select("id,kind,created_by,rsvp,starts_on").gte("starts_on", today);
+      setN((data || []).filter((e) => e.kind === "invite" && e.created_by !== (me && me.id) && e.rsvp === "pending").length);
+    } catch {}
+  }, [client, me && me.id]);
+  useEffect(() => {
+    load();
+    let ch = null;
+    try { ch = client.channel("pp-events-badge").on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => load()).subscribe(); } catch {}
+    const wake = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", wake);
+    return () => { document.removeEventListener("visibilitychange", wake); try { ch && client.removeChannel(ch); } catch {} };
+  }, [client, load]);
+  return n;
+}
 
 // (The rotating photo-collage backdrop lived here — retired with the castle
 // redesign: rooms now paint their own castle-interior walls via .room-bg.)
@@ -219,7 +241,7 @@ function App({ client, onResetCreds }) {
     const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1500));
     const h = idle(() => {
       import("./events.js"); import("./map.js"); import("./memories.js");
-      import("./joinme.js");
+      import("./joinme.js"); import("./gemgame.js");
     });
     return () => { try { (window.cancelIdleCallback || clearTimeout)(h); } catch {} };
   }, []);
