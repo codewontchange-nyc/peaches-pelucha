@@ -37,61 +37,8 @@ const JoinMe = lazyTab(() => import("./joinme.js"), "JoinMe");
 // Navigation is the castle (castle.js): every room is a door in the hub, and
 // ROOMS is the registry — labels/emoji for the topbar come from there too.
 
-// Rotating photo-collage backdrop drawn from the couple's own memories. Heavily
-// blurred + cool-scrimmed (in CSS) so the glass panels and all text stay legible
-// on top. Falls back to the plain cool gradient until there are photos.
-const COLLAGE_TILES = 1;   // one big photo at a time, full mobile height
-function PhotoBackdrop({ client }) {
-  // Seed from the last fetched set so the collage paints on the first frame
-  // (no gradient → photos flash); the fresh list replaces it moments later.
-  const [photos, setPhotos] = useState(() => { try { return JSON.parse(localStorage.getItem("pp.bgphotos") || "null"); } catch { return null; } });
-  // two stacked collage layers that CROSSFADE on rotation (no flash to blank).
-  const [view, setView] = useState({ layers: [null, null], front: 0 });
-  useEffect(() => {
-    let live = true;
-    client.from("memories").select("id,path,thumb_path,kind")
-      .eq("kind", "photo").order("created_at", { ascending: false }).limit(30)
-      .then(({ data }) => {
-        if (!live) return;
-        const urls = (data || []).map((d) => {
-          try { return client.storage.from("memories").getPublicUrl(d.thumb_path || d.path).data.publicUrl; }
-          catch { return null; }
-        }).filter(Boolean);
-        setPhotos((prev) => (JSON.stringify(prev) === JSON.stringify(urls) ? prev : urls));   // identical → no re-layout
-        try { localStorage.setItem("pp.bgphotos", JSON.stringify(urls)); } catch {}
-      });
-    return () => { live = false; };
-  }, [client]);
-  useEffect(() => {
-    if (!photos || !photos.length) return;
-    const screenful = (off) => Array.from({ length: COLLAGE_TILES }, (_, i) => photos[(off + i) % photos.length]);
-    // preload every thumbnail once so a crossfade never reveals a half-loaded tile
-    photos.forEach((u) => { const im = new Image(); im.crossOrigin = "anonymous"; im.decoding = "async"; im.src = u; });
-    setView({ layers: [screenful(0), null], front: 0 });
-    if (photos.length <= COLLAGE_TILES) return;   // one screenful — nothing to rotate
-    let off = 0;
-    const id = setInterval(() => {
-      off = (off + COLLAGE_TILES) % photos.length;
-      const next = screenful(off);
-      setView((v) => {
-        const back = v.front ^ 1;
-        const layers = v.layers.slice();
-        layers[back] = next;
-        return { layers, front: back };   // flip: the freshly-filled layer fades in over the old one
-      });
-    }, 9000);
-    return () => clearInterval(id);
-  }, [photos]);
-  if (!photos || !photos.length) return html`<div class="canvas-cool on"></div>`;
-  const layer = (tiles, i) => html`<div class=${`collage ${view.front === i ? "on" : ""}`} key=${i}>
-    ${(tiles || []).map((u, j) => html`<div class="ctile" key=${j} style=${`background-image:url(${u})`}></div>`)}
-  </div>`;
-  return html`<div class="photobg">
-    ${layer(view.layers[0], 0)}
-    ${layer(view.layers[1], 1)}
-    <div class="photoscrim"></div>
-  </div>`;
-}
+// (The rotating photo-collage backdrop lived here — retired with the castle
+// redesign: rooms now paint their own castle-interior walls via .room-bg.)
 
 // One tab crashing shouldn't blank the whole app. Keyed by tab so it resets on
 // navigation (a crashed section recovers when you leave and come back).
@@ -525,9 +472,9 @@ function App({ client, onResetCreds }) {
   useEffect(() => { if (players.length) document.title = players.map((p) => p.name).join(" & "); }, [players]);
 
   return html`
-    ${mem ? html`<div class="mem-bg"></div>` : hub ? null : html`<${PhotoBackdrop} client=${client} />`}
-    <div class=${`app-shell cool ${mem ? "mem" : ""} ${mapTab ? "map" : ""} ${hub ? "hub" : ""}`}
+    <div class=${`app-shell cool ${mem ? "mem" : ""} ${mapTab ? "map" : ""} ${hub ? "hub" : `room-${tab}`}`}
       onPointerDown=${onEdgeDown} onPointerUp=${onEdgeUp} onPointerCancel=${() => { edgeRef.current = null; }}>
+      ${!hub && html`<div class="room-bg"></div>`}
       <div class="topbar">
         ${hub
           ? html`<div class="brand script">${coupleName}</div>

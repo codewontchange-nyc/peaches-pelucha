@@ -934,32 +934,19 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   --ease-out: cubic-bezier(.22, 1, .36, 1);
 }
 
-/* cool canvas — fixed behind everything; faded IN only off the warm home, so
-   the Score/Phase-10 backdrop (body = --paper) is never altered. */
-.canvas-cool {
-  position: fixed; inset: 0; z-index: -1; opacity: 0; pointer-events: none;
-  transition: opacity .55s var(--ease-out);
-  background:
-    radial-gradient(125% 80% at 12% -8%, #f4f9fc 0%, transparent 55%),
-    radial-gradient(120% 90% at 112% 6%, #e0ecf4 0%, transparent 52%),
-    linear-gradient(180deg, var(--c-canvas) 0%, var(--c-canvas-2) 100%);
-}
-.canvas-cool.on { opacity: 1; }
-
-/* cool-world chrome (scoped under .cool — Score never gets this class) */
-.app-shell.cool { color: var(--c-ink); }
-/* sticky header band: dark frosted glass over the photo backdrop, so the white
-   wordmark stays legible while cards scroll beneath it */
-.app-shell.cool .topbar { background: rgba(15,21,27,.34); border-bottom: 1px solid rgba(255,255,255,.12);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); }
-/* wordmark (both names) → white over the dark photo backdrop */
-.app-shell.cool .brand.script { color: #fff; }
+/* storybook chrome — the whole app is a light watercolor world now */
+.app-shell.cool { color: var(--c-ink); padding-left: 0; padding-right: 0; }
+/* sticky header: a paper glass band with the wordmark in the book's warm brown */
+.app-shell.cool .topbar { margin-left: 0; margin-right: 0;
+  background: rgba(255,251,244,.86); border-bottom: 1px solid rgba(217,161,115,.35);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.app-shell.cool .brand.script { color: #8a5a44; }
 
 /* journal-flip page transition (replays on tab change via key=tab) */
 /* NB: no `will-change`/persistent transform here — it would become the containing
    block for Phase 10's position:fixed board and trap it inside the shell. The
    board must stay truly full-screen. */
-.swipe-wrap { position: relative; touch-action: pan-y; min-height: 60vh; }
+.swipe-wrap { position: relative; touch-action: pan-y; min-height: 60vh; overflow-x: clip; }
 .settling { opacity: 0; }
 .pane-from-r { animation: paneFromR .44s var(--ease-out); }
 .pane-from-l { animation: paneFromL .44s var(--ease-out); }
@@ -1001,12 +988,13 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .app-shell.cool .muted, .app-shell.cool .tiny.muted { color: var(--c-ink-2); }
 .app-shell.cool .sub, .app-shell.cool .wsub { color: var(--c-ink-2); }
 
-/* cards → frosted glass with depth */
+/* cards → full-bleed paper sheets over the room wall (glass/blur retired with
+   the photo backdrop; hairlines top and bottom let the wall show between) */
 .app-shell.cool .card {
-  background: var(--glass); border: 1px solid var(--glass-line); border-radius: 22px;
-  box-shadow: var(--glass-shadow); color: var(--c-ink);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  padding: var(--sp-4); margin-bottom: var(--gap);
+  background: rgba(255,253,250,.84); border: 0; border-radius: 0;
+  border-top: 1px solid rgba(217,161,115,.22); border-bottom: 1px solid rgba(217,161,115,.22);
+  box-shadow: none; color: var(--c-ink);
+  padding: var(--sp-4) 18px; margin: 0 0 14px;
 }
 
 /* buttons → tactile, cool accent */
@@ -1075,35 +1063,8 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .app-shell.cool .memday { color: var(--c-ink); }
 .app-shell.cool .memcell { border-radius: 14px; }
 
-/* ============================================================================
-   ✨ Rotating photo-collage backdrop (memories) + legibility scrim.
-   ========================================================================== */
-.photobg { position: fixed; inset: 0; z-index: -2; overflow: hidden; background: var(--c-canvas); }
-/* two layers stacked; the incoming one fades in over the outgoing one — a clean
-   crossfade with no flash to the empty canvas. Fewer, larger tiles (2×3). */
-/* ONE large photo per layer, filling the whole (mobile-tall) screen. Two layers
-   stacked; the incoming one fades in over the outgoing — a clean crossfade.
-   NO continuous drift animation (it'd force every glass card above to
-   re-rasterize each frame); the 9s opacity crossfade gives the motion instead. */
-.collage {
-  position: absolute; inset: 0;
-  filter: blur(2px) saturate(1.08); transform: scale(1.06);
-  opacity: 0; transition: opacity 1.4s ease;
-}
-.collage.on { opacity: 1; }
-.ctile { position: absolute; inset: 0; background-size: cover; background-position: center; }
-/* dark wash so a bright photo stays behind the light glass cards + white wordmark */
-.photoscrim {
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(18,22,27,.44) 0%, rgba(16,20,25,.52) 50%, rgba(12,16,20,.64) 100%);
-}
-@media (prefers-reduced-motion: reduce) { .collage { animation: none; transition: none; } }
-
-/* legibility for the white wordmark sitting directly on the photo backdrop */
-.app-shell.cool .brand.script { text-shadow: 0 1px 12px rgba(0,0,0,.45); }
-/* …but Memories is a light-background space → keep the wordmark dark there.
-   (Map sits over the dark backdrop, so it uses the white wordmark like home.) */
-.app-shell.mem .brand.script { color: var(--c-ink-2); text-shadow: none; }
+/* (the rotating photo-collage backdrop + its scrim lived here — retired:
+   rooms paint castle-interior walls via .room-bg instead) */
 
 /* Phase 10 BOARD stays exactly as designed even though the shell is cool — only
    the gameplay must be preserved, but the board's own surfaces shouldn't glass. */
@@ -1115,8 +1076,8 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
    ✨ Memories — its own white, full-bleed space. No glass container, no
    backdrop-filter (that broke the photo carousel rendering), no photo backdrop.
    ========================================================================== */
-.mem-bg { position: fixed; inset: 0; z-index: -1; background: #ffffff; }
 .app-shell.mem { padding-left: 0; padding-right: 0; color: var(--c-ink); }
+.app-shell.mem .room-bg { background: #ffffff; }
 /* white space → white header band; NO backdrop-filter here (it breaks the photo
    carousel rendering), so the band is near-opaque instead */
 .app-shell.mem .topbar { margin-left: 0; margin-right: 0; background: rgba(255,255,255,.96);
@@ -1129,12 +1090,7 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 /* ============================================================================
    ✨ Professional polish pass
    ========================================================================== */
-/* no floating hairline dividers between glass cards over the photo bg — let air
-   separate them. Keep the SAME top padding as a first card so every header has
-   the same breathing room (not crunched against the box edge). */
-.app-shell.cool .card + .card { border-top: none; padding-top: var(--sp-4); }
-/* one consistent glass-card radius (cards were 22/18; rows/controls keep their own) */
-.app-shell.cool .card,
+/* one consistent inner-surface radius (cards themselves are full-bleed sheets) */
 .app-shell.cool .evhero,
 .app-shell.cool .score-tile { border-radius: 20px; }
 /* crisper, cooler modal grab handle */
@@ -1658,12 +1614,10 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 /* topbar chips: back-to-castle + room title + hearts counter */
 .backchip { font-size: 15px; padding: 6px 13px; }
 .roomtitle { flex: 1; min-width: 0; font-family: var(--serif); font-weight: 500; font-size: 17.5px;
-  color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.app-shell.mem .roomtitle { color: var(--c-ink); }
-.hubcoin { margin-left: auto; border: 1px solid var(--glass-line); background: var(--glass);
-  color: #fff; border-radius: var(--r-pill); padding: 6px 13px; font-weight: 700; font-size: 14px;
-  font-variant-numeric: tabular-nums; cursor: pointer;
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+  color: #4a3529; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hubcoin { margin-left: auto; border: 1px solid rgba(217,161,115,.4); background: rgba(255,255,255,.72);
+  color: #8a5a44; border-radius: var(--r-pill); padding: 6px 13px; font-weight: 700; font-size: 14px;
+  font-variant-numeric: tabular-nums; cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   .hub-avatar span, .hub-avatar i, .castle-svg .badge-halo { animation: none; }
@@ -1697,3 +1651,46 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 @keyframes kite-sway { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
 @keyframes sky-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 @media (prefers-reduced-motion: reduce) { .castle-sky { display: none; } }
+
+/* ============================================================================
+   🏰 Room interiors — every room is full-bleed over a castle-interior wall:
+   a lamplit wash at the ceiling, a painted wall, and a hard floor line near
+   the bottom. One .room-bg layer, tinted per room by the shell class.
+   ========================================================================== */
+.room-bg { position: fixed; inset: 0; z-index: -1;
+  background:
+    radial-gradient(130% 46% at 50% -8%, rgba(255,255,255,.8), transparent 62%),
+    linear-gradient(180deg, #fdf3ea 0%, #f6e7d8 74%, #e3cbaa 74.4%, #d5b892 100%); }
+.app-shell.room-gameroom .room-bg { background:
+  radial-gradient(130% 46% at 50% -8%, rgba(255,255,255,.8), transparent 62%),
+  linear-gradient(180deg, #fdf1e4 0%, #f7e2cb 74%, #d9a173 74.4%, #c8905f 100%); }
+.app-shell.room-chapel .room-bg { background:
+  radial-gradient(130% 46% at 50% -8%, rgba(255,255,255,.9), transparent 62%),
+  linear-gradient(180deg, #fff7e2 0%, #ffedc6 74%, #ecd3a2 74.4%, #dfc188 100%); }
+.app-shell.room-plans .room-bg { background:
+  radial-gradient(130% 46% at 50% -8%, rgba(255,255,255,.85), transparent 62%),
+  linear-gradient(180deg, #fdf0ec 0%, #fadfd6 74%, #e9bda7 74.4%, #dcab90 100%); }
+.app-shell.room-map .room-bg { background:
+  radial-gradient(130% 46% at 50% -8%, rgba(255,255,255,.85), transparent 62%),
+  linear-gradient(180deg, #eef5f9 0%, #dcebf3 74%, #b9cedd 74.4%, #a6bfd0 100%); }
+.app-shell.room-schmoney .room-bg { background:
+  radial-gradient(130% 46% at 50% -8%, rgba(255,255,255,.85), transparent 62%),
+  linear-gradient(180deg, #fdeff3 0%, #fadbe3 74%, #eab6c2 74.4%, #dda2b1 100%); }
+.app-shell.room-joinme .room-bg { background:
+  radial-gradient(130% 46% at 50% -8%, rgba(255,255,255,.85), transparent 62%),
+  linear-gradient(180deg, #f1f7ec 0%, #e0efd4 74%, #b3cfa2 74.4%, #a0c18d 100%); }
+.app-shell.room-more .room-bg { background:
+  radial-gradient(130% 46% at 50% -8%, rgba(255,255,255,.8), transparent 62%),
+  linear-gradient(180deg, #f6ede1 0%, #ead9c4 74%, #c8a97e 74.4%, #b6946a 100%); }
+
+/* nested entrance sequence: the pane slides in, then its cards land one after
+   another. Keyed off Settle's reveal classes so the stagger starts when the
+   pane actually shows; finite keyframes ending transform:none (gamefs rule). */
+.pane-from-r .card, .pane-from-l .card { animation: roomCard .45s var(--ease-out) both; }
+.pane-from-r .card:nth-child(2), .pane-from-l .card:nth-child(2) { animation-delay: .06s; }
+.pane-from-r .card:nth-child(3), .pane-from-l .card:nth-child(3) { animation-delay: .12s; }
+.pane-from-r .card:nth-child(4), .pane-from-l .card:nth-child(4) { animation-delay: .18s; }
+.pane-from-r .card:nth-child(5), .pane-from-l .card:nth-child(5) { animation-delay: .24s; }
+.pane-from-r .card:nth-child(n+6), .pane-from-l .card:nth-child(n+6) { animation-delay: .3s; }
+@keyframes roomCard { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pane-from-r .card, .pane-from-l .card { animation: none; } }
