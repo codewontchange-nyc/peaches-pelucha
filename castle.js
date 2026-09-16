@@ -431,6 +431,20 @@ function CastleSVG({ opening, badges, onDoor }) {
     <ellipse cx="195" cy="676" rx="260" ry="46" fill="#cdeac0" opacity=".7" filter="url(#c-wash)" />
 
     <!-- sun with little rays -->
+    <!-- ☀️ sunlight: a breathing bloom + slowly turning long rays behind the
+         painted sun (hidden at night along with the sun's recolor) -->
+    <radialGradient id="c-sunglow">
+      <stop offset="0" stop-color="#ffd166" stop-opacity=".5" />
+      <stop offset=".55" stop-color="#ffd166" stop-opacity=".16" />
+      <stop offset="1" stop-color="#ffd166" stop-opacity="0" />
+    </radialGradient>
+    <circle class="cz-glow" cx="336" cy="52" r="54" fill="url(#c-sunglow)" />
+    <g class="cz-rays" stroke="#ffd166" stroke-width="3" stroke-linecap="round" opacity=".5">
+      <path d="M336 30 V13" /><path d="M336 74 V91" />
+      <path d="M314 52 H297" /><path d="M358 52 H375" />
+      <path d="M320.4 36.4 L308.4 24.4" /><path d="M351.6 36.4 L363.6 24.4" />
+      <path d="M320.4 67.6 L308.4 79.6" /><path d="M351.6 67.6 L363.6 79.6" />
+    </g>
     <circle cx="336" cy="52" r="16" fill="#ffd166" filter="url(#c-wc)" />
     <g stroke="#ffd166" stroke-width="3" stroke-linecap="round" opacity=".8">
       <path d="M336 27 v-8" /><path d="M358 36 l6 -6" /><path d="M314 36 l-6 -6" /><path d="M361 52 h8" />

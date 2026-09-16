@@ -1631,6 +1631,15 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .w-night .castle-svg rect[fill="#cdeac0"] { fill: #2e4a3a; }
 .w-night .castle-svg ellipse[fill="#cdeac0"] { fill: #2e4a3a; }
 .w-night .castle-svg ellipse[fill="#7fb069"] { fill: #223a2b; }
+/* ☀️ castle sunlight: rays turn slowly, the bloom breathes; off after dark,
+   warmed at first/last light */
+.cz-rays { transform-box: view-box; transform-origin: 336px 52px;
+  animation: sunrays 26s linear infinite; }
+.cz-glow { animation: sunbloom 5.2s ease-in-out infinite; }
+@keyframes sunbloom { 50% { opacity: .6; } }
+.w-night .castle-svg .cz-glow, .w-night .castle-svg .cz-rays { display: none; }
+.w-dawn .castle-svg .cz-rays, .w-dusk .castle-svg .cz-rays { stroke: #ff9e7d; }
+@media (prefers-reduced-motion: reduce) { .cz-rays, .cz-glow { animation: none; } }
 /* castle sky-life after dark: the balloon, kite and birds turn in */
 .castle-sky.night .sky-balloon, .castle-sky.night .sky-kite, .castle-sky.night .sky-bird { display: none; }
 .castle-sky.night .sky-cloud path { fill: #3c4c68; stroke: #16233a; }
