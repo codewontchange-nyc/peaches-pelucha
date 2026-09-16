@@ -1595,9 +1595,47 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   font-style: normal; font-weight: 800; font-size: 15px; color: #2b2521; padding-bottom: 6px; }
 @keyframes skyhintbob { 50% { transform: translateX(-50%) translateY(-5px); } }
 
-/* the sky: deep blue at the summit fading to the castle's paper, one screen */
+/* the sky: deep blue at the summit fading to the castle's paper, one screen.
+   🌗 the gradient follows the REAL sun (sr-dawn/day/dusk/night) */
 .skyrealm { position: relative; height: 100%; overflow: hidden;
-  background: linear-gradient(180deg, #9ec8e8 0%, #b7d8ee 38%, #cfe7f5 66%, #ecf3f2 88%, #faf5ef 100%); }
+  background: linear-gradient(180deg, #9ec8e8 0%, #b7d8ee 38%, #cfe7f5 66%, #ecf3f2 88%, #faf5ef 100%);
+  transition: background 2s linear; }
+.skyrealm.sr-dawn { background: linear-gradient(180deg, #2b3a5c 0%, #56507a 26%, #a06a88 50%, #e8938a 72%, #ffd9ae 90%, #faf5ef 100%); }
+.skyrealm.sr-dusk { background: linear-gradient(180deg, #2e3a5e 0%, #6a4a74 26%, #b25f74 50%, #ee8a63 72%, #ffc490 90%, #faf5ef 100%); }
+.skyrealm.sr-night { background: linear-gradient(180deg, #0d1a30 0%, #16263f 34%, #23324e 64%, #2e3d59 88%, #33425e 100%); }
+/* at night the castle stands in evening blue, lawn deep green; the seam
+   still matches the sky's bottom color */
+.worldv.w-night .castlezone { background: linear-gradient(180deg, #33425e 0%, #3d4c66 46%, #43526c 82%, #2e4a3a 100%); }
+.worldv.w-night .castlezone::before { content: ""; position: absolute; inset: 0 0 40% 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.4px 1.4px at 12% 18%, #f4ecd7 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 34% 8%, #f4ecd7 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 58% 22%, #f4ecd7 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 76% 12%, #f4ecd7 50%, transparent 51%),
+    radial-gradient(1.4px 1.4px at 90% 26%, #f4ecd7 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 22% 34%, #f4ecd7 50%, transparent 51%),
+    radial-gradient(1.4px 1.4px at 46% 40%, #f4ecd7 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 68% 34%, #f4ecd7 50%, transparent 51%);
+  opacity: .85; }
+/* the spire windows glow warm after dark */
+.worldv.w-night #spire-l, .worldv.w-night #spire-r { fill: #ffdf8e;
+  filter: drop-shadow(0 0 6px rgba(255,209,102,.85)); }
+/* the castle ART goes to evening: its painted paper, sun, washes and lawn
+   are recolored in place (the SVG paints its own background) */
+.w-night .castle-svg rect[fill="#faf5ef"] { fill: #33425e; }
+.w-night .castle-svg circle[cx="336"][fill="#ffd166"] { fill: #f2e8cf; }
+.w-night .castle-svg g[stroke="#f4c542"] { display: none; }
+.w-night .castle-svg ellipse[fill="#cfe7f5"] { fill: #26364f; }
+.w-night .castle-svg ellipse[fill="#ffd9cf"] { fill: #2c3a54; }
+.w-night .castle-svg rect[fill="#cdeac0"] { fill: #2e4a3a; }
+.w-night .castle-svg ellipse[fill="#cdeac0"] { fill: #2e4a3a; }
+.w-night .castle-svg ellipse[fill="#7fb069"] { fill: #223a2b; }
+/* castle sky-life after dark: the balloon, kite and birds turn in */
+.castle-sky.night .sky-balloon, .castle-sky.night .sky-kite, .castle-sky.night .sky-bird { display: none; }
+.castle-sky.night .sky-cloud path { fill: #3c4c68; stroke: #16233a; }
+.cz-sat { position: absolute; top: 5%; left: 0; width: 26px; z-index: 1;
+  animation: satdrift 75s linear infinite; animation-delay: -20s; }
 /* watercolor pigment layer: drifts open a touch SLOWER than the clouds —
    painted depth between the gradient and the cloud field */
 .sky-wash { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
@@ -1624,6 +1662,87 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   will-change: transform; }
 .sun-rays { transform-origin: 60px 60px; animation: sunrays 24s linear infinite; }
 @keyframes sunrays { to { transform: rotate(360deg); } }
+.sky-sun.is-moon { filter: drop-shadow(0 0 14px rgba(242,232,207,.55)); }
+
+/* 🌙 the night crew */
+.sky-night { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.sky-stars { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tw { animation: twinkle 3.4s ease-in-out infinite; }
+.tw1 { animation-delay: -1.1s; animation-duration: 4.1s; }
+.tw2 { animation-delay: -2.3s; animation-duration: 2.9s; }
+@keyframes twinkle { 50% { opacity: .3; } }
+/* shooting stars: brief streaks on long quiet loops */
+.sky-shoot { position: absolute; width: 92px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255,255,255,0), #fff);
+  opacity: 0; transform: rotate(148deg); }
+.sky-shoot.sh1 { top: 12%; left: 62%; animation: shoot 9s linear infinite; animation-delay: 2s; }
+.sky-shoot.sh2 { top: 27%; left: 26%; animation: shoot 13s linear infinite; animation-delay: 7.5s; }
+@keyframes shoot {
+  0%   { opacity: 0; transform: rotate(148deg) translateX(0); }
+  1.5% { opacity: 1; }
+  7%   { opacity: 0; transform: rotate(148deg) translateX(210px); }
+  100% { opacity: 0; transform: rotate(148deg) translateX(210px); }
+}
+/* satellite: a slow, dead-straight glide with a blinking beacon */
+.sky-sat { position: absolute; top: 8%; left: 0; width: 30px;
+  animation: satdrift 64s linear infinite; animation-delay: -10s; }
+@keyframes satdrift {
+  from { transform: translate(110vw, 0) rotate(-8deg); }
+  to   { transform: translate(-24vw, 60px) rotate(-8deg); }
+}
+/* the red-eye: crosses briskly with nav lights */
+.sky-plane { position: absolute; top: 34%; left: 0; width: 44px;
+  animation: planedrift 30s linear infinite; animation-delay: -4s; }
+@keyframes planedrift {
+  from { transform: translateX(-18vw); }
+  to   { transform: translateX(112vw); }
+}
+.nt-blink { animation: ntblink 1.2s steps(1) infinite; }
+.nt-blink2 { animation: ntblink 1.2s steps(1) infinite; animation-delay: .6s; }
+@keyframes ntblink { 0%, 45% { opacity: 1; } 50%, 95% { opacity: 0; } }
+/* 👽 rare visitor: wobbles across, hovers a beat mid-sky, slips away */
+.sky-ufo { position: absolute; top: 20%; left: 0; width: 52px;
+  animation: ufodrift 76s linear infinite; animation-delay: -8s; }
+@keyframes ufodrift {
+  0%   { transform: translate(-16vw, 0); }
+  30%  { transform: translate(38vw, -16px); }
+  36%  { transform: translate(44vw, -6px) rotate(-4deg); }
+  42%  { transform: translate(50vw, -18px) rotate(3deg); }
+  48%  { transform: translate(54vw, -10px); }
+  72%  { transform: translate(114vw, -26px); }
+  100% { transform: translate(114vw, -26px); }
+}
+.ufo-l1 { animation: ntblink .5s steps(1) infinite; }
+.ufo-l2 { animation: ntblink .5s steps(1) infinite; animation-delay: .17s; }
+.ufo-l3 { animation: ntblink .5s steps(1) infinite; animation-delay: .34s; }
+.ufo-beam { animation: twinkle 1.6s ease-in-out infinite; }
+
+/* night legibility: light ink, dark veil + glow */
+.sr-night .sky-content { color: #dfe7f3;
+  text-shadow: 0 1px 0 rgba(10,16,28,.9), 0 0 14px rgba(10,16,28,.9), 0 0 30px rgba(10,16,28,.6); }
+.sr-night .sky-content::before {
+  background: radial-gradient(ellipse 62% 50% at 50% 46%, rgba(11,19,35,.66), rgba(11,19,35,.3) 58%, transparent 76%); }
+.sr-night .sky-verse { color: #f3ecdd; }
+.sr-night .sky-cap, .sr-night .sky-day, .sr-night .sky-verse-ref { color: #ffb98a; }
+.sr-night .sky-soft, .sr-night .sky-descent { color: #93a5bd; }
+.sr-night .sky-good { color: #8fd39a; }
+.sr-night .sky-delay { color: #ff9a94; }
+.sr-night .sky-orn { color: #5c7396; }
+.sr-night .skyc path { fill: #3c4c68; stroke: #16233a; }
+.sr-night .skyb { display: none; }
+.sr-night .sky-wash { opacity: .16; }
+.sr-dawn .sky-wash, .sr-dusk .sky-wash { opacity: .5; }
+/* dawn/dusk: clouds catch the light */
+.sr-dawn .skyc path, .sr-dusk .skyc path { fill: #ffe4d2; stroke: #b98a80; }
+.sr-dawn .sky-content, .sr-dusk .sky-content {
+  text-shadow: 0 1px 0 rgba(255,245,235,.9), 0 0 14px rgba(255,240,228,.9), 0 0 30px rgba(255,240,228,.6); }
+/* the verse rides the dark indigo band at first/last light — wear cream */
+.sr-dawn .sky-verse, .sr-dusk .sky-verse { color: #fff7ea;
+  text-shadow: 0 1px 0 rgba(55,38,62,.6), 0 0 12px rgba(55,38,72,.65); }
+.sr-dawn .sky-verse-ref, .sr-dusk .sky-verse-ref { color: #ffd9ae;
+  text-shadow: 0 1px 0 rgba(55,38,62,.6); }
+.sr-dawn .sky-content::before, .sr-dusk .sky-content::before {
+  background: radial-gradient(ellipse 62% 50% at 50% 46%, rgba(255,246,238,.7), rgba(255,246,238,.3) 58%, transparent 76%); }
 
 /* one elegant screen of unbounded editorial text over the moving sky;
    it rises + fades in with the flight, and a soft radial veil (not a card)
@@ -1659,8 +1778,11 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .sky-descent { font-size: 12.5px; color: #8a9bb0; margin-top: 2vh; letter-spacing: .05em; }
 
 @media (prefers-reduced-motion: reduce) {
-  .skyc, .skyb, .sun-rays, .sky-hint { animation: none; }
+  .skyc, .skyb, .sun-rays, .sky-hint, .tw, .sky-shoot, .sky-sat, .sky-plane, .sky-ufo, .cz-sat,
+  .nt-blink, .nt-blink2, .ufo-l1, .ufo-l2, .ufo-l3, .ufo-beam { animation: none; }
   .skyc { transform: translateX(30vw); } .skyb { transform: translateX(60vw); }
+  .sky-sat, .cz-sat { transform: translate(70vw, 20px); } .sky-plane { transform: translateX(30vw); }
+  .sky-ufo { transform: translate(46vw, -12px); } .sky-shoot { display: none; }
   .castlezone, .sky-air, .sky-sun, .sky-content, .sky-wash { transform: none !important; opacity: 1 !important; }
 }
 

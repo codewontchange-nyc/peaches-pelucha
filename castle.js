@@ -1,7 +1,7 @@
 import { h } from "https://esm.sh/preact@10.23.2";
 import { useState, useRef, useEffect, useCallback, useMemo } from "https://esm.sh/preact@10.23.2/hooks";
 import htm from "https://esm.sh/htm@3.1.1";
-import { SkyRealm } from "./sky.js";
+import { SkyRealm, skyPhase } from "./sky.js";
 
 // app-load flag: the FIRST hub mount opens in the sky, later mounts (coming
 // back from rooms) land on the castle
@@ -123,6 +123,13 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
   // swoop toward it as it falls away), the cloud field starts huge overhead
   // (worm's-eye) and opens up, and the sun glides down to hold its place
   // above you. All composited, no layout work per frame.
+  // 🌗 the whole world follows the real sun (see sky.js skyPhase)
+  const [dayPhase, setDayPhase] = useState(() => skyPhase().phase);
+  useEffect(() => {
+    const iv = setInterval(() => setDayPhase(skyPhase().phase), 60000);
+    return () => clearInterval(iv);
+  }, []);
+
   const worldRef = useRef(null);
   useEffect(() => {
     const el = worldRef.current; if (!el) return;
@@ -203,7 +210,7 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
     return () => { el.removeEventListener("scroll", onScroll); window.removeEventListener("resize", size); cancelAnimationFrame(raf); cancelFlight(); shell && shell.classList.remove("hubworld"); };
   }, []);
 
-  return html`<div class="worldv" ref=${worldRef}>
+  return html`<div class=${`worldv w-${dayPhase}`} ref=${worldRef}>
     <section class="skyzone"><${SkyRealm} client=${client} players=${players} /></section>
     <section class="castlezone">
       <div ref=${wrapRef} class=${`castle-wrap ${zoom ? "zoom" : ""}`}
@@ -215,7 +222,7 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
           <i>⌃</i>
         </button>
         <${CastleSVG} opening=${opening} badges=${badges} onDoor=${onDoor} />
-        <${SkyLife} />
+        <${SkyLife} night=${dayPhase === "night"} />
         ${client && players.length >= 2 && html`<${Shouts} client=${client} players=${players} />`}
         <div class=${`hub-avatar ${walking ? "walking" : ""} ${opening ? "entering" : ""}`}
           style=${`left:${(pos.x / 390 * 100).toFixed(2)}%; top:${(pos.y / 720 * 100).toFixed(2)}%; transition-duration:${walking ? walkMs : 0}ms`}>
@@ -233,7 +240,7 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
 const rnd = (a, b) => a + Math.random() * (b - a);
 const CLOUD_PATH = "M24 62 C11 62 5 52 12 43 C6 33 18 26 28 32 C30 17 50 13 58 25 C65 11 89 13 90 31 C107 29 115 45 103 55 C109 64 96 67 88 63 C80 67 32 67 24 62 Z";
 
-function SkyLife() {
+function SkyLife({ night }) {
   // All flight is TRANSFORM-only (translateX in vw ≈ the wrap width on
   // phones) — no left/top keyframes, so the sky never triggers layout and
   // stays on the compositor. Vertical positions are static `top`s.
@@ -267,7 +274,14 @@ function SkyLife() {
   const kite = useMemo(() => ({ top: `${rnd(8, 15).toFixed(1)}%`,
     animationDuration: "95s", animationDelay: `-${rnd(0, 95).toFixed(0)}s` }), []);
 
-  return html`<div class="castle-sky" aria-hidden="true">
+  return html`<div class=${`castle-sky ${night ? "night" : ""}`} aria-hidden="true">
+    ${night && html`<svg class="cz-sat" viewBox="0 0 64 24" fill="none">
+      <rect x="2" y="8" width="16" height="8" rx="1.5" fill="#7fa3c9" stroke="#0d1a30" stroke-width="1.5" />
+      <rect x="46" y="8" width="16" height="8" rx="1.5" fill="#7fa3c9" stroke="#0d1a30" stroke-width="1.5" />
+      <path d="M18 12 h6 M40 12 h6" stroke="#c3d3e6" stroke-width="2" />
+      <circle cx="32" cy="12" r="7" fill="#dfe7f3" stroke="#0d1a30" stroke-width="2" />
+      <circle class="nt-blink" cx="32" cy="12" r="2" fill="#ff6b6b" />
+    </svg>`}
     ${clouds.map((s, i) => html`<svg key=${`c${i}`} class="sky-cloud" style=${s} viewBox="0 0 120 74" fill="none">
       <path d=${CLOUD_PATH} fill="#fff" stroke="#111" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
     </svg>`)}
