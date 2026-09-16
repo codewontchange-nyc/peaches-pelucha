@@ -147,6 +147,24 @@ export function SkyRealm({ client, players }) {
   const minsProse = (mins) => mins.map((m, i) => html`<b key=${i} class="tnum">${m === 0 ? "now" : m}</b>${i < mins.length - 2 ? ", " : i === mins.length - 2 ? " & " : ""}`);
 
   return html`<div class="skyrealm" ref=${rootRef}>
+    <!-- watercolor washes: soft pigment layers behind the clouds, moving a
+         touch slower than them for painted depth -->
+    <svg class="sky-wash" viewBox="0 0 390 720" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <filter id="sw-wc" x="-14%" y="-14%" width="128%" height="128%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.028" numOctaves="3" seed="9" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="12" />
+        </filter>
+      </defs>
+      <g filter="url(#sw-wc)">
+        <ellipse cx="100" cy="60" rx="250" ry="110" fill="#6ea6d6" opacity=".38" />
+        <ellipse cx="310" cy="150" rx="230" ry="115" fill="#8fbde4" opacity=".34" />
+        <ellipse cx="60" cy="300" rx="240" ry="125" fill="#ffd9cf" opacity=".2" />
+        <ellipse cx="300" cy="420" rx="255" ry="135" fill="#bcd9ee" opacity=".42" />
+        <ellipse cx="120" cy="560" rx="270" ry="120" fill="#fdf3ea" opacity=".4" />
+        <ellipse cx="280" cy="670" rx="260" ry="100" fill="#faf5ef" opacity=".55" />
+      </g>
+    </svg>
     <!-- living sky: the cloud field opens with the ascent; the sun holds
          its place above you (both driven by --fly, set by the scroller) -->
     <div class="sky-air" aria-hidden="true">
@@ -156,10 +174,13 @@ export function SkyRealm({ client, players }) {
       <${Cloud} style="--y:49%; --d:64s; --s:.85; --o:.9; --neg:-30s" />
       <${Cloud} soft style="--y:64%; --d:78s; --s:1.4; --o:.8; --neg:-52s" />
       <${Cloud} style="--y:80%; --d:70s; --s:1.1; --o:.9; --neg:-8s" />
-      <svg class="sky-bird" style="--y:28%; --d:34s; --neg:-6s" viewBox="0 0 40 20" fill="none">
+      <svg class="skyb" style="--y:28%; --d:34s; --neg:-6s" viewBox="0 0 40 20" fill="none">
         <path d="M2 12 Q10 2 20 11 Q30 2 38 12" stroke="#111" stroke-width="2.5" stroke-linecap="round" />
       </svg>
-      <svg class="sky-bird" style="--y:56%; --d:41s; --neg:-22s" viewBox="0 0 40 20" fill="none">
+      <svg class="skyb" style="--y:56%; --d:41s; --neg:-22s" viewBox="0 0 40 20" fill="none">
+        <path d="M2 12 Q10 2 20 11 Q30 2 38 12" stroke="#111" stroke-width="2.5" stroke-linecap="round" />
+      </svg>
+      <svg class="skyb" style="--y:12%; --d:47s; --neg:-33s" viewBox="0 0 40 20" fill="none">
         <path d="M2 12 Q10 2 20 11 Q30 2 38 12" stroke="#111" stroke-width="2.5" stroke-linecap="round" />
       </svg>
     </div>

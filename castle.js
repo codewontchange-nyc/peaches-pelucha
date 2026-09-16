@@ -3,6 +3,10 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "https://esm.s
 import htm from "https://esm.sh/htm@3.1.1";
 import { SkyRealm } from "./sky.js";
 
+// app-load flag: the FIRST hub mount opens in the sky, later mounts (coming
+// back from rooms) land on the castle
+let seenSkyThisLoad = false;
+
 const html = htm.bind(h);
 
 /* 🏰 The Castle — the app's hub world (Mario 64 energy, storybook flat-vector
@@ -123,8 +127,16 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
   useEffect(() => {
     const el = worldRef.current; if (!el) return;
     const max = () => el.scrollHeight - el.clientHeight;
-    el.scrollTop = max();                            // land on the castle, instantly
-    el.style.setProperty("--fly", "0");
+    // the app OPENS in the sky (the day's verse greets you); returning to
+    // the hub from a room within the same session lands on the castle
+    if (!seenSkyThisLoad) {
+      seenSkyThisLoad = true;
+      el.scrollTop = 0;
+      el.style.setProperty("--fly", "1");
+    } else {
+      el.scrollTop = max();
+      el.style.setProperty("--fly", "0");
+    }
     const size = () => el.style.setProperty("--skyH", Math.round(el.clientHeight * 0.86) + "px");
     size();
     let raf = 0;
