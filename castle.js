@@ -1,6 +1,7 @@
 import { h } from "https://esm.sh/preact@10.23.2";
 import { useState, useRef, useEffect, useCallback, useMemo } from "https://esm.sh/preact@10.23.2/hooks";
 import htm from "https://esm.sh/htm@3.1.1";
+import { Lakeside } from "./lake.js";
 
 const html = htm.bind(h);
 
@@ -112,15 +113,43 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
     return () => { document.removeEventListener("visibilitychange", onVis); clearAll(); };
   }, [onEnter]);
 
-  return html`<div ref=${wrapRef} class=${`castle-wrap ${zoom ? "zoom" : ""}`}
-    style=${zoom ? `transform-origin:${zoom.ox}px ${zoom.oy}px` : ""}>
-    <div class="castle-bg"></div>
-    <${CastleSVG} opening=${opening} badges=${badges} onDoor=${onDoor} />
-    <${SkyLife} />
-    ${client && players.length >= 2 && html`<${Shouts} client=${client} players=${players} />`}
-    <div class=${`hub-avatar ${walking ? "walking" : ""} ${opening ? "entering" : ""}`}
-      style=${`left:${(pos.x / 390 * 100).toFixed(2)}%; top:${(pos.y / 720 * 100).toFixed(2)}%; transition-duration:${walking ? walkMs : 0}ms`}>
-      <span style=${`transform:scaleX(${face})`}><i>${(me && me.emoji) || "💗"}</i></span>
+  // 🌍 the world: swipe LEFT-ward (scroll left) from the castle to find the
+  // lakeside. Native scroll-snap does the panning; the castle is the home
+  // panel, so we land on it instantly before first paint.
+  const worldRef = useRef(null);
+  const [panel, setPanel] = useState(1);
+  useEffect(() => {
+    const el = worldRef.current; if (!el) return;
+    el.scrollLeft = el.clientWidth;                  // start at the castle
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => { raf = 0; setPanel(el.scrollLeft < el.clientWidth / 2 ? 0 : 1); });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => { el.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
+  }, []);
+
+  return html`<div class="world-holder">
+    <div class="world" ref=${worldRef}>
+    <section class="world-panel"><${Lakeside} client=${client} players=${players} /></section>
+    <section class="world-panel">
+      <div ref=${wrapRef} class=${`castle-wrap ${zoom ? "zoom" : ""}`}
+        style=${zoom ? `transform-origin:${zoom.ox}px ${zoom.oy}px` : ""}>
+        <div class="castle-bg"></div>
+        <${CastleSVG} opening=${opening} badges=${badges} onDoor=${onDoor} />
+        <${SkyLife} />
+        ${client && players.length >= 2 && html`<${Shouts} client=${client} players=${players} />`}
+        <div class=${`hub-avatar ${walking ? "walking" : ""} ${opening ? "entering" : ""}`}
+          style=${`left:${(pos.x / 390 * 100).toFixed(2)}%; top:${(pos.y / 720 * 100).toFixed(2)}%; transition-duration:${walking ? walkMs : 0}ms`}>
+          <span style=${`transform:scaleX(${face})`}><i>${(me && me.emoji) || "💗"}</i></span>
+        </div>
+      </div>
+    </section>
+    </div>
+    <div class="world-dots" aria-hidden="true">
+      <i class=${panel === 0 ? "on" : ""}>🏞</i>
+      <i class=${panel === 1 ? "on" : ""}>🏰</i>
     </div>
   </div>`;
 }
