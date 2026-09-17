@@ -637,3 +637,19 @@ alter table gem_progress enable row level security;
 drop policy if exists anon_all on gem_progress;
 create policy anon_all on gem_progress for all to anon, authenticated using (true) with check (true);
 do $$ begin alter publication supabase_realtime add table gem_progress; exception when duplicate_object then null; end $$;
+
+-- gem_matches (041): Gem Duel ⚔️ online — Phase-10 sync (state jsonb +
+-- version, optimistic commits, realtime); board derived by replaying actions.
+create table if not exists gem_matches (
+  id          uuid primary key default gen_random_uuid(),
+  status      text not null default 'playing',   -- 'playing' | 'finished'
+  state       jsonb not null,
+  version     int not null default 0,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists gem_matches_live on gem_matches (status, created_at desc);
+alter table gem_matches enable row level security;
+drop policy if exists anon_all on gem_matches;
+create policy anon_all on gem_matches for all to anon, authenticated using (true) with check (true);
+do $$ begin alter publication supabase_realtime add table gem_matches; exception when duplicate_object then null; end $$;

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "https://esm.sh/preact@
 import htm from "https://esm.sh/htm@3.1.1";
 import * as G from "./gems.js";
 import { GemMap, BADGES, earnedBadges } from "./gemmap.js";
+import { notifyTurn } from "./push.js";
 
 const html = htm.bind(h);
 
@@ -249,8 +250,12 @@ function ammoCharge(pts, combo) {
 }
 
 /* ================= the playable surface (gamefs) ======================== */
-function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
+function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd, net }) {
   const [levelNo, setLevelNo] = useState(startLevel || 1);
+  // ⚔️ online duel plumbing: net = {match, myIdx, local, commit, rematch}.
+  // The board is always DERIVED (replayDuel over the match's action log);
+  // this ref lets the stable callbacks read the freshest row.
+  const netRef = useRef(net); netRef.current = net;
   const [phase, setPhase] = useState("play");        // play | cleared | dead | duelend
   const [hud, setHud] = useState(null);              // {score, misses, moveEvery, cur, next, stars, warmLeft, coolLeft}
   const wrapRef = useRef(null), cvRef = useRef(null);
@@ -272,21 +277,26 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
   });
   const boot = useCallback((lvl) => {
     if (duel) snd.loadSamples();                   // real billiard clips, decoded once
-    const run = duel ? G.newDuelRun(lvl) : G.newRun(JOURNEY_SEED, lvl);
+    const nm = netRef.current && netRef.current.match;
+    const run = duel
+      ? (nm ? G.replayDuel(nm.state.seed, nm.state.actions || []) : G.newDuelRun(lvl))
+      : G.newRun(JOURNEY_SEED, lvl);
     S.current = {
-      run, theme: duel ? THEMES[0] : themeFor(JOURNEY_SEED, lvl),   // duel = colored hearts: 🔥❤️💛🧡 vs ❄️💚💙💜
+      run, theme: duel ? THEMES[0] : themeFor(JOURNEY_SEED, lvl),
       display: run.rows.map((r) => r.slice()), drops: run.drops,
       queue: [], pending: null, anim: null, particles: [], falling: [],
       trail: [], popups: [], jiggles: [], shake: 0, recoil: 0, slowUntil: 0,
       aim: null, raf: 0, last: 0, watchdog: 0, sprites: null, scale: 1, offX: 0, dpr: 1,
       shotsUsed: 0, par: Math.round(run.rows.flat().filter((v) => v != null).length * 0.6) + 8,
+      applied: nm ? (nm.state.actions || []).length : 0,   // net: actions already on the board
+      matchId: nm ? nm.id : null,
     };
-    setHud({ score: 0, misses: 0, moveEvery: run.moveEvery, cur: run.cur, next: run.next, ...(duel ? duelCounts(run.rows) : {}) });
-    setCombo(0); setFever(false); setTurn(0); setArmed(false);
+    setHud({ score: run.mode === "duel" ? run.scores[0] + run.scores[1] : 0, misses: run.misses, moveEvery: run.moveEvery, cur: run.cur, next: run.next, ...(duel ? duelCounts(run.rows) : {}) });
+    setCombo(0); setFever(false); setTurn(run.mode === "duel" ? run.turn : 0); setArmed(false);
     setAmmo(duel ? null : ammoRead());
-    if (duel) setDuelAmmo([1, 1]);
+    if (duel) setDuelAmmo(run.ammo || [1, 1]);
     setBossUi(run.boss ? { hp: run.boss.hp, maxHp: run.boss.maxHp, exposed: false, hitN: 0 } : null);
-    setPhase("play");
+    setPhase(run.status === "duelend" ? "duelend" : "play");
     const FORM = { rows: "", blob: "☁️ Cloudbank", ring: "⭕ The Ring", rope: "⛓ Hanging Chains", spiral: "🌀 The Spiral", heart: "💞 Heart of the Sky" };
     const bits = duel ? ["● solids vs ◐ stripes — don't sink the 🎱 · one 🎯 each"]
       : [run.boss ? "⛈ BOSS: wound the storm with pops!" : FORM[run.formation], run.shapeMode ? "🔷 Shape match" : "", run.stormy ? "⛈ The sky shoots back" : "", run.gift ? "🎁 Gift level" : "", ...run.mods].filter(Boolean);
@@ -765,11 +775,14 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
   const fire = useCallback((angleMil) => {
     const st = S.current;
     if (!st || st.anim || st.pending || phaseRef.current !== "play") return;
+    const n = netRef.current;
+    if (n && !n.local && st.run.mode === "duel" && st.run.turn !== n.myIdx) return;   // partner's shot, not yours
     snd.ensure();                                    // first gesture unlocks audio (iOS)
     // 🎯 armed = this shot is the pellet (the engine ignores the flag in a
     // duel when that player's pellet is gone)
     const wantAmmo = armedRef.current;
-    const { run, events } = G.applyShot(st.run, { t: "shot", a: angleMil, ...(wantAmmo ? { ammo: true } : {}) });
+    const action = { t: "shot", a: angleMil, ...(wantAmmo ? { ammo: true } : {}), by: st.run.turn };
+    const { run, events } = G.applyShot(st.run, action);
     // 🎯 the meter: every point a NORMAL journey shot scores charges the
     // pouch (combos charge extra); a full meter mints the next pellet
     if (!duel && !wantAmmo) {
@@ -796,6 +809,9 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
     }
     st.pending = run;
     if (!wantAmmo) st.shotsUsed++;                   // pellets never count against stars
+    // ⚔️ online: commit the ACTION (never the board) — Phase-10 style. The
+    // fizzled-pellet path above already returned, so every commit is real.
+    if (n && st.run.mode === "duel" && run !== st.run) { st.applied += 1; n.commit(action, run); }
     st.recoil = 1;
     st.trail = [];
     // 🔥 FEVER: chain 4+ combos and the sky goes golden slow-mo
@@ -816,11 +832,58 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
   const swap = useCallback(() => {
     const st = S.current;
     if (!st || st.anim || st.pending || phaseRef.current !== "play") return;
-    const { run } = G.applyShot(st.run, { t: "swap" });
+    const n = netRef.current;
+    if (n && !n.local && st.run.mode === "duel" && st.run.turn !== n.myIdx) return;
+    const action = { t: "swap", by: st.run.turn };
+    const { run } = G.applyShot(st.run, action);
     st.run = run;
+    // swaps change the deterministic hand order, so they join the action log
+    // too (no turn flip, no push — the commit is silent)
+    if (n && run.mode === "duel") { st.applied += 1; n.commit(action, run); }
     setHud((h0) => ({ ...h0, cur: run.cur, next: run.next }));
     draw();
   }, [draw]);
+
+  // ⚔️ online: jump the board straight to a known state (multi-action
+  // catch-ups, conflicts, backgrounded returns)
+  const snapTo = useCallback((run) => {
+    const st = S.current; if (!st) return;
+    clearTimeout(st.watchdog); st.anim = null; st.pending = null; st.queue = [];
+    st.run = run;
+    st.display = run.rows.map((r) => r.slice()); st.drops = run.drops;
+    st.particles = []; st.falling = []; st.trail = []; st.popups = []; st.jiggles = [];
+    setHud({ score: run.scores ? run.scores[0] + run.scores[1] : run.score, misses: run.misses, moveEvery: run.moveEvery, cur: run.cur, next: run.next, ...(run.mode === "duel" ? duelCounts(run.rows) : {}) });
+    setTurn(run.turn || 0); setDuelAmmo(run.ammo || [1, 1]);
+    setPhase(run.status === "duelend" ? "duelend" : "play");
+    draw();
+  }, [draw]);   // eslint-disable-line
+
+  // ⚔️ online: the partner's committed actions arrive on the match row.
+  // ONE fresh action while we're idle and visible → play it as a live
+  // animation (their shot arcs across your board); anything more → snap.
+  useEffect(() => {
+    const n = net; const st = S.current;
+    if (!n || !n.match || !st || !duel) return;
+    if (n.match.id !== st.matchId) {                 // rematch → fresh board
+      boot(0);
+      setTimeout(fit, 30);
+      return;
+    }
+    const acts = n.match.state.actions || [];
+    if (acts.length <= st.applied) return;           // my own echo / nothing new
+    const fresh = acts.slice(st.applied);
+    st.applied = acts.length;
+    if (st.pending || st.anim || fresh.length > 1 || document.visibilityState !== "visible") {
+      snapTo(G.replayDuel(n.match.state.seed, acts));
+    } else {
+      const { run, events } = G.applyShot(st.run, fresh[0]);
+      st.pending = run;
+      st.queue = events.slice();
+      nextEvent(); ensureRaf();
+      clearTimeout(st.watchdog);
+      st.watchdog = setTimeout(() => { const s2 = S.current; if (s2 && s2.pending) { s2.queue = []; s2.anim = null; finishAnim(); } }, 4200);
+    }
+  }, [net && net.match && net.match.id, net && net.match && net.match.version]);   // eslint-disable-line
 
   /* ---- input: drag to aim, release to fire (window listeners + watchdog) */
   useEffect(() => {
@@ -901,8 +964,8 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
         ${bossUi.exposed && html`<span class="gemfs-boss-now">weak spot open!</span>`}
       </span>
     </div>`}
-    ${duel && html`<div class=${`gemfs-turnbar ${turn === 0 ? "warm" : "cool"}`}>
-      <span class="gemfs-turn-who">${duelP.emoji} ${duelP.name}'s shot</span>
+    ${duel && html`<div class=${`gemfs-turnbar ${turn === 0 ? "warm" : "cool"} ${net && !net.local && turn !== net.myIdx ? "theirs" : ""}`}>
+      <span class="gemfs-turn-who">${duelP.emoji} ${duelP.name}'s shot${net && !net.local && turn !== net.myIdx ? " · on their phone 📱" : ""}</span>
       <span class="gemfs-turn-side">${turn === 0 ? "● solids" : "◐ stripes"}</span>
       <span class="gemfs-turn-counts tnum">● ${hud ? hud.warmLeft : 0} · ◐ ${hud ? hud.coolLeft : 0}</span>
     </div>`}
@@ -961,7 +1024,7 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
           <div class="gemfs-stars">${S.current.run.winner === 0 ? "●" : "◐"} 🎱</div>
           <div class="gemfs-duelprize">+25 💗 to ${w.name}</div>
           <div class="tnum" style="font-size:16px">● ${S.current.run.scores[0]} · ◐ ${S.current.run.scores[1]}</div>
-          <button class="btn" onClick=${() => { boot((Math.random() * 4294967296) >>> 0); setTimeout(fit, 30); }}>Rematch ⚔️</button>
+          <button class="btn" onClick=${() => { const n = netRef.current; if (n && n.rematch) n.rematch(); else { boot((Math.random() * 4294967296) >>> 0); setTimeout(fit, 30); } }}>Rematch ⚔️</button>
           <button class="linkbtn" onClick=${() => onExit(levelNo)}>Back to the castle</button>
         </div>`; })()}
     </div>
@@ -970,13 +1033,70 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
 }
 
 /* ================= Game Room entry card ================================= */
+/* ---- ⚔️ the online duel match — the Phase 10 sync recipe on gem_matches:
+   newest 'playing' row, realtime UPDATE with a version guard, resubscribe on
+   channel death, wake on visibility/focus/online + a 20s visible poll. */
+function useGemMatch(client) {
+  const [match, setMatch] = useState(undefined);     // undefined=loading, null=none
+  const ref = useRef(undefined);
+  useEffect(() => { ref.current = match; }, [match]);
+  const load = useCallback(async () => {
+    const { data } = await client.from("gem_matches").select("*").eq("status", "playing")
+      .order("created_at", { ascending: false }).limit(1);
+    const row = (data && data[0]) || null;
+    const cur = ref.current;
+    if (row && cur && row.id === cur.id && row.version === cur.version) return;
+    setMatch(row);
+  }, [client]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let alive = true, ch = null;
+    const subscribe = () => {
+      try {
+        ch = client.channel("pp-gqduel-" + Math.random().toString(36).slice(2, 7))
+          .on("postgres_changes", { event: "*", schema: "public", table: "gem_matches" }, (p) => {
+            if (p.eventType === "DELETE") { load(); return; }
+            const row = p.new;
+            // our own echoes can arrive late — version is monotonic per row
+            if (row.status === "playing") setMatch((cur) => (cur && cur.id === row.id && typeof cur.version === "number" && row.version < cur.version ? cur : row));
+            else load();
+          })
+          .subscribe((status) => {
+            if (alive && (status === "CHANNEL_ERROR" || status === "TIMED_OUT")) {
+              setTimeout(() => { if (alive) { try { client.removeChannel(ch); } catch {} subscribe(); load(); } }, 1500);
+            }
+          });
+      } catch {}
+    };
+    subscribe();
+    const wake = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
+    window.addEventListener("online", wake);
+    const beat = setInterval(wake, 20000);
+    return () => {
+      alive = false; clearInterval(beat);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("focus", wake);
+      window.removeEventListener("online", wake);
+      try { ch && client.removeChannel(ch); } catch {}
+    };
+  }, [client, load]);
+  return [match, setMatch, load];
+}
+
 export function GemQuestCard({ client, me, players, flash }) {
   const partner = players.find((p) => p.id !== me.id);
   const [prog, setProg] = useState(null);            // all gem_progress rows
   const [playing, setPlaying] = useState(null);      // null | {level}
   const [mapOpen, setMapOpen] = useState(false);
   const [duelSetup, setDuelSetup] = useState(false);
-  const [dueling, setDueling] = useState(null);      // {p0, p1} — p0 is warm 🔥
+  const [dueling, setDueling] = useState(false);     // duel surface open?
+  const [duelMatch, setDuelMatch, reloadDuel] = useGemMatch(client);
+  const dmRef = useRef(null); dmRef.current = duelMatch;
+  const duelBusy = useRef(false);
+  const local = !!client._db;                        // demo: one device, no gating
+  const byId = (id) => players.find((p) => p.id === id) || me;
 
   const load = useCallback(async () => {
     const { data } = await client.from("gem_progress").select("*").order("level");
@@ -1021,20 +1141,80 @@ export function GemQuestCard({ client, me, players, flash }) {
     } catch {}
   }, [client, me.id, load, flash]);
 
-  // winner takes 25 💗 — awarded once per rack (GemPlay's st.duelPaid guard),
-  // recorded in games so lifetime tallies count duels too
-  const awardDuel = useCallback(async (winnerIdx, d) => {
-    const w = winnerIdx === 0 ? d.p0 : d.p1;
-    try {
-      await client.from("transactions").insert({ player_id: w.id, amount: 25, type: "earn", description: "Gem Duel won 🎱" });
-      await client.from("games").insert({ name: "Gem Duel", status: "finished", winner_id: w.id, finished_at: new Date().toISOString() });
-      flash(`${w.emoji} ${w.name} +25 💗 — table run!`);
-    } catch {}
-  }, [client, flash]);
+  /* ⚔️ start a duel: the challenger PICKS a side, the row is born, and the
+     partner's phone gets a push — each of you plays from your own device. */
+  const startDuel = useCallback(async (mySide /* 0 = ● solids, 1 = ◐ stripes */) => {
+    if (!partner) return;
+    const seed = (Math.random() * 4294967296) >>> 0;
+    const p0 = mySide === 0 ? me.id : partner.id;    // p0 is ALWAYS ● solids and shoots first
+    const p1 = mySide === 0 ? partner.id : me.id;
+    const state = { mode: "duel", seed, p0, p1, turn: 0, actions: [], scores: [0, 0], status: "playing", winner: null, hash: null };
+    const { data, error } = await client.from("gem_matches").insert({ state }).select().single();
+    if (error || !data) { flash("⚠️ couldn't start the duel"); return; }
+    setDuelMatch(data);
+    notifyTurn(client, partner.id, "Gem Duel! ⚔️🎱",
+      `${me.emoji} ${me.name} challenged you — you shoot ${p0 === partner.id ? "● solids. Your shot first!" : "◐ stripes."}`);
+    setDueling(true);
+  }, [client, me, partner, flash, setDuelMatch]);
 
-  if (dueling) return html`<${GemPlay} me=${me} duel=${dueling}
-    onDuelEnd=${(winnerIdx) => awardDuel(winnerIdx, dueling)}
-    onExit=${() => setDueling(null)} />`;
+  /* commit ONE action (Phase-10 style: optimistic, version-guarded; on
+     conflict, reload — the board is always derivable from the log). The
+     committer of the ENDING shot is the single writer for the 25💗 award,
+     the games row, and the duel-over push. */
+  const commitDuel = useCallback(async (action, newRun) => {
+    const m = dmRef.current;
+    if (!m || duelBusy.current || !partner) return false;
+    duelBusy.current = true;
+    const st0 = m.state;
+    const newState = { ...st0, actions: [...(st0.actions || []), action], turn: newRun.turn,
+      scores: newRun.scores, status: newRun.status, winner: newRun.winner, hash: G.boardHash(newRun) };
+    const version = m.version;
+    setDuelMatch({ ...m, state: newState, version: version + 1 });
+    const { data, error } = await client.from("gem_matches")
+      .update({ state: newState, version: version + 1, updated_at: new Date().toISOString() })
+      .eq("id", m.id).eq("version", version).select();
+    duelBusy.current = false;
+    if (error || !data || !data.length) { flash("Out of sync — refreshing"); reloadDuel(); return false; }
+    if (action.t === "shot") {
+      if (newRun.status === "duelend") {
+        const w = byId(newRun.winner === 0 ? newState.p0 : newState.p1);
+        try {
+          await client.from("transactions").insert({ player_id: w.id, amount: 25, type: "earn", description: "Gem Duel won 🎱" });
+          await client.from("games").insert({ name: "Gem Duel", status: "finished", winner_id: w.id, finished_at: new Date().toISOString() });
+        } catch {}
+        flash(`${w.emoji} ${w.name} +25 💗 — table run!`);
+        notifyTurn(client, partner.id, "Duel over 🎱",
+          w.id === partner.id ? "You ran the table! +25 💗" : `${w.emoji} ${w.name} ran the table this time.`);
+      } else {
+        const turnPid = newRun.turn === 0 ? newState.p0 : newState.p1;
+        if (turnPid === partner.id) notifyTurn(client, partner.id, "Your shot! 🎱", `${me.emoji} ${me.name} played — the rack is waiting.`);
+      }
+    }
+    return true;
+  }, [client, me, partner, flash, reloadDuel, setDuelMatch]);   // eslint-disable-line
+
+  // rematch keeps each player's side; the old row retires so the new one is
+  // the single live match on both phones
+  const rematchDuel = useCallback(async () => {
+    const m = dmRef.current;
+    const mySide = m && m.state ? (m.state.p0 === me.id ? 0 : 1) : 0;
+    if (m) { try { await client.from("gem_matches").update({ status: "finished", updated_at: new Date().toISOString() }).eq("id", m.id); } catch {} }
+    await startDuel(mySide);
+  }, [client, me, startDuel]);
+
+  const dismissDuel = useCallback(async () => {
+    const m = dmRef.current; if (!m) { setDueling(false); return; }
+    try { await client.from("gem_matches").update({ status: "finished", updated_at: new Date().toISOString() }).eq("id", m.id); } catch {}
+    setDuelMatch(null); setDueling(false);
+  }, [client, setDuelMatch]);
+
+  if (dueling && duelMatch && partner) {
+    const st0 = duelMatch.state;
+    return html`<${GemPlay} me=${me}
+      duel=${{ p0: byId(st0.p0), p1: byId(st0.p1) }}
+      net=${{ match: duelMatch, myIdx: st0.p0 === me.id ? 0 : 1, local, commit: commitDuel, rematch: rematchDuel }}
+      onExit=${() => setDueling(false)} />`;
+  }
 
   if (playing) return html`<${GemPlay} me=${me} startLevel=${playing.level}
     onCleared=${saveClear}
@@ -1050,19 +1230,36 @@ export function GemQuestCard({ client, me, players, flash }) {
     <div class="gamehero-meta tnum">
       ${myBest ? `best ${myBest}` : "a new journey"} · 🎖 ${earnedBadges(mine).length}/${BADGES.length}${partner && theirLevel ? ` · ${partner.emoji} is on ${theirLevel + 1}` : ""}
     </div>
+    ${(() => {
+      const dState = duelMatch && duelMatch.state;
+      if (!partner || !dState) return null;
+      const turnPid = dState.turn === 0 ? dState.p0 : dState.p1;
+      if (dState.status === "duelend") {
+        const w = byId(dState.winner === 0 ? dState.p0 : dState.p1);
+        return html`<div class="gemduel-live over">
+          <span>🎱 ${w.emoji} <b>${w.name}</b> ran the table</span>
+          <button class="linkbtn" onClick=${() => setDueling(true)}>see it ›</button>
+          <button class="linkbtn" onClick=${dismissDuel}>dismiss</button>
+        </div>`;
+      }
+      return html`<div class=${`gemduel-live ${turnPid === me.id ? "mine" : ""}`}>
+        <span>⚔️ ${turnPid === me.id ? html`<b>Your shot!</b>` : html`${byId(turnPid).emoji} ${byId(turnPid).name} is up`}</span>
+        <button class="btn gamehero-btn" onClick=${() => setDueling(true)}>${turnPid === me.id ? "Shoot ▸" : "Watch ▸"}</button>
+      </div>`;
+    })()}
     <div class="row" style="gap:10px; justify-content:center; flex-wrap:wrap">
       <button class="btn gamehero-btn" onClick=${() => setPlaying({ level: myLevel })}>Play ▸</button>
       <button class="btn ghost" onClick=${() => setMapOpen(true)}>🗺 Journey</button>
-      ${partner && html`<button class="btn ghost" onClick=${() => setDuelSetup(true)}>⚔️ Duel</button>`}
+      ${partner && !duelMatch && html`<button class="btn ghost" onClick=${() => setDuelSetup(true)}>⚔️ Duel</button>`}
     </div>
     ${duelSetup && html`<div class="modal-bg asheet" onClick=${(e) => { if (e.target.classList.contains("modal-bg")) setDuelSetup(false); }}>
       <div class="modal" onClick=${(e) => e.stopPropagation()}>
         <div class="handle"></div>
-        <div class="eyebrow" style="margin-bottom:6px">🎱 gem duel — pass the phone</div>
-        <p class="sub" style="margin-bottom:12px">One rack, alternating shots. Clear <b>your</b> balls first — and wall theirs in. But mind the 🎱: whoever knocks the eight-ball loose eats <b>-300</b>. Each side packs one <b>🎯 pellet</b> — it knocks out any single ball, even the 8-ball, penalty-free. Winner takes <b>25 💗</b>. Who shoots ● solids? The other gets ◐ stripes.</p>
+        <div class="eyebrow" style="margin-bottom:6px">🎱 gem duel — live, phone vs phone</div>
+        <p class="sub" style="margin-bottom:12px">${partner.name} gets a push the moment you start — you each shoot from your own phone, turn by turn, and watch each other's shots play back. Clear <b>your</b> balls first, wall theirs in, and mind the 🎱 (<b>-300</b> to whoever sinks it — one 🎯 pellet each). Winner takes <b>25 💗</b>. ● solids always break first. Pick your side:</p>
         <div class="row" style="gap:10px">
-          <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: me, p1: partner }); }}>● ${me.emoji} ${me.name}</button>
-          <button class="btn block" onClick=${() => { setDuelSetup(false); setDueling({ p0: partner, p1: me }); }}>● ${partner.emoji} ${partner.name}</button>
+          <button class="btn block" onClick=${() => { setDuelSetup(false); startDuel(0); }}>● I'll shoot solids</button>
+          <button class="btn block" onClick=${() => { setDuelSetup(false); startDuel(1); }}>◐ I'll shoot stripes</button>
         </div>
       </div>
     </div>`}

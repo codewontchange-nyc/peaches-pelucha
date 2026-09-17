@@ -688,6 +688,13 @@ export function replay(seed, levelNo, actions) {
   for (const a of actions) run = applyShot(run, a).run;
   return run;
 }
+// ⚔️ online duel reconstruction: both phones derive the identical board by
+// replaying the match's action log from its seed (applyShot routes by mode)
+export function replayDuel(seed, actions) {
+  let run = newDuelRun(seed >>> 0);
+  for (const a of actions) run = applyShot(run, a).run;
+  return run;
+}
 export function boardHash(run) {
   let h = 2166136261 >>> 0;
   const eat = (s) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } };
