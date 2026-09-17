@@ -2084,8 +2084,8 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
   0%, 100% { background: linear-gradient(180deg, #ffe9b8 0%, #ffd9cf 46%, #faf5ef 78%, #e0efd4 100%); }
   50% { background: linear-gradient(180deg, #ffd9cf 0%, #ffe9b8 46%, #fdf1e7 78%, #cdeac0 100%); }
 }
-.gemfs-boss { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 2px 0 6px;
-  animation: bossShake .4s ease; }
+.gemfs-boss { display: flex; align-items: center; justify-content: center; padding: 2px 0 6px; }
+.gemfs-boss-in { display: flex; align-items: center; gap: 10px; animation: bossShake .4s ease; }
 .gemfs-boss-face { font-size: 34px; line-height: 1; filter: drop-shadow(0 3px 6px rgba(43,37,33,.3)); }
 .gemfs-boss.exposed .gemfs-boss-face { animation: bossExposedPulse .6s ease-in-out infinite; }
 @keyframes bossExposedPulse { 0%, 100% { filter: drop-shadow(0 0 4px rgba(207,74,99,.9)); transform: scale(1); }

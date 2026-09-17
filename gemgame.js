@@ -300,6 +300,9 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
     const wrap = wrapRef.current, cv = cvRef.current, st = S.current;
     if (!wrap || !cv || !st) return;
     const cw = wrap.clientWidth, chh = wrap.clientHeight;
+    // never fit against a degenerate box (hidden tab, keyboard mid-slide,
+    // rotation frame) — a poisoned scale would stick until the next resize
+    if (cw < 80 || chh < 80) return;
     const WORLDH = G.LAUNCH_Y + 2.2 * G.R;
     const s = Math.min(cw / G.WUNITS, chh / WORLDH);
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -312,7 +315,12 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
   useEffect(() => {
     fit();
     window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
+    // a ResizeObserver on the stage catches layout shifts no window resize
+    // reports — the boss bar mounting a frame after boot, viewport restores —
+    // so the canvas always matches the stage it actually has
+    let ro = null;
+    try { ro = new ResizeObserver(() => fit()); wrapRef.current && ro.observe(wrapRef.current); } catch {}
+    return () => { window.removeEventListener("resize", fit); try { ro && ro.disconnect(); } catch {} };
   }, [fit]);
 
   /* ---- drawing (world units through one transform) ---- */
@@ -883,10 +891,15 @@ function GemPlay({ me, startLevel, onExit, onCleared, duel, onDuelEnd }) {
       <button class="iconbtn" onClick=${() => { snd.muted = !snd.muted; try { localStorage.setItem("pp.gq.mute", snd.muted ? "1" : "0"); } catch {} setMuted(snd.muted); }}>${muted ? "🔇" : "🔊"}</button>
       <div class="gemfs-score tnum">${hud ? hud.score : 0}</div>
     </div>
-    ${bossUi && html`<div class=${`gemfs-boss ${bossUi.exposed ? "exposed" : ""}`} key=${"hit" + bossUi.hitN}>
-      <span class="gemfs-boss-face">⛈️</span>
-      <span class="gemfs-boss-hp">${"❤️".repeat(bossUi.hp)}${"🖤".repeat(Math.max(0, bossUi.maxHp - bossUi.hp))}</span>
-      ${bossUi.exposed && html`<span class="gemfs-boss-now">weak spot open!</span>`}
+    ${bossUi && html`<div class=${`gemfs-boss ${bossUi.exposed ? "exposed" : ""}`}>
+      <!-- the shake-replay key lives on an INNER node: a changing key among
+           the root's unkeyed children made preact recreate its siblings —
+           including the stage + canvas, which came back at 300x150 -->
+      <span class="gemfs-boss-in" key=${"hit" + bossUi.hitN}>
+        <span class="gemfs-boss-face">⛈️</span>
+        <span class="gemfs-boss-hp">${"❤️".repeat(bossUi.hp)}${"🖤".repeat(Math.max(0, bossUi.maxHp - bossUi.hp))}</span>
+        ${bossUi.exposed && html`<span class="gemfs-boss-now">weak spot open!</span>`}
+      </span>
     </div>`}
     ${duel && html`<div class=${`gemfs-turnbar ${turn === 0 ? "warm" : "cool"}`}>
       <span class="gemfs-turn-who">${duelP.emoji} ${duelP.name}'s shot</span>
