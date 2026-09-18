@@ -68,6 +68,7 @@ function seed() {
     todos: [],
     gem_progress: [],
     gem_matches: [],
+    uno_matches: [],
     map_pins: [
       { id: uid(), lat: 48.8566, lng: 2.3522, title: "That little café in Paris", note: "the one from the movie", list: "Places We Want to Go", emoji: "☕", visited: false, created_by: peaches, created_at: nowISO() },
       { id: uid(), lat: 41.9028, lng: 12.4964, title: "Rome someday", note: "the pasta one", list: "Places We Want to Go", emoji: "🍜", visited: false, created_by: pelucha, created_at: nowISO() },
@@ -156,6 +157,7 @@ const DEFAULTS = {
   shopping_items: { label: "", meal_night: null, market: null, done: false, created_by: null },
   gem_progress: { stars: 0, best_score: 0, updated_at: null },
   gem_matches: { status: "playing", version: 0, updated_at: null },
+  uno_matches: { status: "playing", version: 0, updated_at: null },
   map_pins: { note: null, list: "Places We Want to Go", emoji: "📍", visited: false, created_by: null },
   date_ideas: { emoji: "✨", category: "food", active: true, added_by: null },
   date_spins: { emoji: "✨", category: "food", spun_by: null },

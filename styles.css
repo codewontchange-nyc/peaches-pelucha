@@ -2206,3 +2206,82 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .map-tapnote { position: absolute; z-index: 900; top: 12px; left: 50%; transform: translateX(-50%);
   background: rgba(45,74,99,.88); color: #fff; font-size: 12.5px; font-weight: 700;
   padding: 7px 15px; border-radius: 999px; pointer-events: none; animation: fade .2s ease; }
+
+/* ============================== 🃏 UNO ================================= */
+.unofs { background: linear-gradient(180deg, #f7ede2 0%, #faf5ef 40%, #efe5d8 100%); }
+.unofs .gamefs-bar { flex: 0 0 auto; }
+/* one card: colored ground, the classic slanted white oval, corner indices */
+.ucard { position: relative; width: 58px; height: 86px; border-radius: 9px; flex: 0 0 auto;
+  border: 2.5px solid #fffdfb; box-shadow: 0 3px 8px -3px rgba(43,37,33,.4);
+  color: #fff; font-weight: 800; cursor: pointer; padding: 0; overflow: hidden;
+  display: grid; place-items: center; }
+.ucard.sm { width: 44px; height: 66px; border-radius: 7px; }
+.ucard.r { background: #e8434a; } .ucard.y { background: #f4c542; color: #2b2521; }
+.ucard.g { background: #4da34d; } .ucard.b { background: #4a90e2; }
+.ucard.w { background: #26262b; }
+.ucard.back { background: #26262b; cursor: default; }
+.ucard.back i { font-style: normal; font-size: 20px; opacity: .9; }
+.ucard.back.sm i { font-size: 15px; }
+.uc-oval { position: absolute; inset: 8% 14%; border-radius: 50%;
+  background: rgba(255,255,255,.22); transform: rotate(-28deg); pointer-events: none; }
+.ucard.y .uc-oval { background: rgba(255,255,255,.4); }
+.uc-center { position: relative; font-size: 30px; line-height: 1;
+  text-shadow: 0 2px 0 rgba(43,37,33,.25); }
+.ucard.sm .uc-center { font-size: 22px; }
+.uc-center.onquad { position: absolute; color: #fff; font-size: 19px;
+  text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+.uc-quad { position: relative; width: 34px; height: 34px; border-radius: 50%;
+  border: 2.5px solid #fffdfb;
+  background: conic-gradient(#e8434a 0 25%, #f4c542 0 50%, #4da34d 0 75%, #4a90e2 0); }
+.ucard.sm .uc-quad { width: 26px; height: 26px; }
+.uc-corner { position: absolute; top: 4px; left: 6px; font-size: 12px; }
+.uc-corner.b { top: auto; left: auto; bottom: 4px; right: 6px; transform: rotate(180deg); }
+.ucard.sel { outline: 3px solid #c15f3c; outline-offset: 2px; }
+
+.uno-opp { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 14px 0; }
+.uno-opp-name { font-size: 13.5px; font-weight: 700; color: #4a3529; }
+.uno-backs { display: flex; align-items: center; }
+.uno-backs .ucard { margin-left: -30px; }
+.uno-backs .ucard:first-child { margin-left: 0; }
+.uno-backs-n { margin-left: 8px; font-weight: 800; color: #8a5a44; }
+
+.uno-table { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 26px; }
+.uno-deck { position: relative; border: 0; background: none; padding: 0; cursor: pointer; }
+.uno-deck:disabled { cursor: default; opacity: .8; }
+.uno-deck .ucard { box-shadow: 2px 2px 0 #1c1c20, 4px 4px 0 #141417, 0 6px 14px -4px rgba(43,37,33,.5); }
+.uno-deck-hint { position: absolute; left: 50%; bottom: -20px; transform: translateX(-50%);
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 800; color: #b96f4e; }
+.uno-pile { position: relative; }
+.uno-pile .ucard { width: 74px; height: 110px; cursor: default; }
+.uno-pile .uc-center { font-size: 40px; }
+.uno-colordot { position: absolute; top: -7px; right: -7px; width: 22px; height: 22px;
+  border-radius: 50%; border: 3px solid #fffdfb; box-shadow: 0 2px 6px -2px rgba(43,37,33,.5); }
+
+.uno-ticker { text-align: center; font-size: 13px; color: #8a7a6d; padding: 2px 14px; }
+.uno-turnbar { text-align: center; font-size: 13.5px; font-weight: 700; color: #2d6d9e;
+  padding: 4px 14px 8px; }
+.uno-turnbar.mine { color: #b13a52; }
+
+.uno-hand { display: flex; align-items: flex-end; overflow-x: auto; padding: 10px 18px calc(14px + var(--safe-bottom));
+  scrollbar-width: none; }
+.uno-hand::-webkit-scrollbar { display: none; }
+.uno-hand .ucard { margin-left: -16px; transition: transform .15s ease; }
+.uno-hand .ucard:first-child { margin-left: 0; }
+.uno-hand .ucard:active { transform: translateY(-8px); }
+
+.uno-flag { color: #cf4a63; }
+.uno-flag.big { position: absolute; left: 50%; top: 38%; transform: translate(-50%,-50%) rotate(-6deg);
+  font-family: var(--serif); font-size: 44px; font-weight: 800; color: #cf4a63;
+  text-shadow: 0 2px 0 #fff, 0 6px 18px rgba(207,74,99,.4); pointer-events: none;
+  animation: unopop .5s var(--spring) both; }
+@keyframes unopop { 0% { transform: translate(-50%,-50%) scale(.3) rotate(-6deg); opacity: 0; }
+  100% { transform: translate(-50%,-50%) scale(1) rotate(-6deg); opacity: 1; } }
+
+.uno-drawnbar { position: absolute; left: 50%; bottom: calc(120px + var(--safe-bottom));
+  transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+  background: #fffdfb; border: 1.5px solid #d9a173; border-radius: 999px;
+  padding: 8px 14px; font-size: 13px; color: #4a3529; white-space: nowrap;
+  box-shadow: 0 6px 18px -8px rgba(138,90,68,.45); }
+.uno-colors .row { padding: 10px 0 6px; }
+.uno-colorbtn { width: 54px; height: 54px; border-radius: 50%; border: 3px solid #fffdfb;
+  box-shadow: 0 4px 10px -4px rgba(43,37,33,.5); cursor: pointer; }

@@ -30,6 +30,7 @@ function lazyTab(loader, name) {
 }
 const MemoriesTab = lazyTab(() => import("./memories.js"), "MemoriesTab");
 const GemQuestCard = lazyTab(() => import("./gemgame.js"), "GemQuestCard");
+const UnoCard = lazyTab(() => import("./unogame.js"), "UnoCard");
 const PlansTab = lazyTab(() => import("./events.js"), "PlansTab");
 const MapTab = lazyTab(() => import("./map.js"), "MapCard");
 const JoinMe = lazyTab(() => import("./joinme.js"), "JoinMe");
@@ -755,6 +756,7 @@ function GameRoom(ctx) {
   return html`<div data-noswipe>
     <${PlayTab} ...${ctx} />
     <${GemQuestCard} client=${ctx.client} me=${ctx.me} players=${ctx.players} flash=${ctx.flash} />
+    <${UnoCard} client=${ctx.client} me=${ctx.me} players=${ctx.players} flash=${ctx.flash} />
   </div>`;
 }
 
