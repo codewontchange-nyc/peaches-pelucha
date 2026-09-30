@@ -1,7 +1,9 @@
 import { h } from "https://esm.sh/preact@10.23.2";
 import { useState, useRef, useEffect, useCallback, useMemo } from "https://esm.sh/preact@10.23.2/hooks";
 import htm from "https://esm.sh/htm@3.1.1";
+import { createPortal } from "https://esm.sh/preact@10.23.2/compat";
 import { SkyRealm, skyPhase } from "./sky.js";
+import { notifyTurn } from "./push.js";
 
 // app-load flag: the FIRST hub mount opens in the sky, later mounts (coming
 // back from rooms) land on the castle
@@ -172,8 +174,12 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
         // flight is the greeting, and it shouldn't play behind a sheet
         const t00 = Date.now();
         const tryLater = () => {
-          if (document.querySelector(".dailyfull") && Date.now() - t00 < 60000) { flyTimer = setTimeout(tryLater, 350); return; }
+          if (document.querySelector(".dailyfull, .gratfull") && Date.now() - t00 < 60000) { flyTimer = setTimeout(tryLater, 350); return; }
+          // a pending invite means we stay on the ground: the 💌 card is the
+          // first thing you see, no flight to carry you past it
+          if (document.querySelector(".rsvp-nudge")) return;
           flyTimer = setTimeout(() => {
+            if (document.querySelector(".rsvp-nudge")) return;   // invite landed while we waited
             const from = el.scrollTop, dur = 1300, t0 = performance.now();
             // mandatory snap re-snaps EVERY per-frame scrollTop write back to
             // the castle (verified: the whole flight collapses to a jump) —
@@ -224,6 +230,8 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
         <${CastleSVG} opening=${opening} badges=${badges} onDoor=${onDoor} />
         <${SkyLife} night=${dayPhase === "night"} />
         ${client && players.length >= 2 && html`<${Shouts} client=${client} players=${players} />`}
+        ${client && me && html`<${RsvpNudge} client=${client} me=${me} players=${players} />`}
+        ${client && me && html`<${GratitudeAsk} client=${client} me=${me} players=${players} />`}
         <div class=${`hub-avatar ${walking ? "walking" : ""} ${opening ? "entering" : ""}`}
           style=${`left:${(pos.x / 390 * 100).toFixed(2)}%; top:${(pos.y / 720 * 100).toFixed(2)}%; transition-duration:${walking ? walkMs : 0}ms`}>
           <span style=${`transform:scaleX(${face})`}><i>${(me && me.emoji) || "💗"}</i></span>
@@ -385,6 +393,127 @@ function Shouts({ client, players }) {
       <span class="shout-text">“${b.text}”</span>
     </div>`)}
   </div>`;
+}
+
+/* ---- 💌 RSVP nudge: a pending invite pinned to the lawn so "I'm in" is
+   one tap from the home screen, never missed ---- */
+const rsvpWhen = (ev) => {
+  try {
+    const [y, m, d] = ev.starts_on.split("-").map(Number);
+    const day = new Date(y, m - 1, d);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const days = Math.round((day - today) / 864e5);
+    const dayWord = days <= 0 ? "today" : days === 1 ? "tomorrow" : day.toLocaleDateString([], { weekday: "short" });
+    if (!ev.starts_at) return dayWord;
+    const [hh, mm] = ev.starts_at.split(":").map(Number);
+    const t = `${((hh + 11) % 12) + 1}${mm ? ":" + String(mm).padStart(2, "0") : ""}${hh < 12 ? "am" : "pm"}`;
+    return `${dayWord} ${t}`;
+  } catch { return ""; }
+};
+
+function RsvpNudge({ client, me, players }) {
+  const [ev, setEv] = useState(null);
+  const [said, setSaid] = useState(null);            // brief "you're in" confirmation
+  const load = useCallback(async () => {
+    try {
+      const today = new Date();
+      const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const { data } = await client.from("events").select("*")
+        .eq("kind", "invite").eq("rsvp", "pending").gte("starts_on", iso)
+        .order("starts_on").order("starts_at");
+      const mine = (data || []).filter((e) => e.created_by && e.created_by !== me.id);
+      setEv(mine[0] || null);
+    } catch {}
+  }, [client, me.id]);
+  useEffect(() => {
+    load();
+    let ch = null;
+    try {
+      ch = client.channel("pp-rsvpn-" + Math.random().toString(36).slice(2, 6))
+        .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => load())
+        .subscribe();
+    } catch {}
+    const wake = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", wake);
+    return () => { document.removeEventListener("visibilitychange", wake); try { ch && client.removeChannel(ch); } catch {} };
+  }, [client, load]);
+
+  const answer = async (r) => {
+    if (!ev) return;
+    try {
+      await client.from("events").update({ rsvp: r }).eq("id", ev.id);
+      notifyTurn(client, ev.created_by, r === "in" ? "They're in! 🎉" : "Rain check 😞",
+        `${me.emoji} ${me.name} ${r === "in" ? "is IN for" : "can't make"} ${ev.emoji} ${ev.title}.`);
+    } catch {}
+    setSaid(r === "in" ? "You're in! 🎉" : "Told them 💌");
+    setTimeout(() => { setSaid(null); load(); }, 1600);
+  };
+
+  if (said) return html`<div class="rsvp-nudge said">${said}</div>`;
+  if (!ev) return null;
+  const from = players.find((p) => p.id === ev.created_by);
+  return html`<div class="rsvp-nudge">
+    <span class="rsvp-envelope">💌</span>
+    <span class="rsvp-what"><b>${ev.emoji} ${ev.title}</b><i>${from ? `${from.emoji} asked` : "invite"} · ${rsvpWhen(ev)}</i></span>
+    <button class="rsvp-yes" onClick=${() => answer("in")}>I'm in 🎉</button>
+    <button class="rsvp-no" onClick=${() => answer("cant")}>can't</button>
+  </div>`;
+}
+
+/* ---- 📣 gratitude interrupt: a few times a month, at a random moment,
+   the castle asks what you're grateful for. Answers land in gratitudes,
+   which is exactly what the spires shout. Cadence lives per phone in
+   localStorage (pp.grat.next). ---- */
+function GratitudeAsk({ client, me, players }) {
+  const [show, setShow] = useState(false);
+  const [text, setText] = useState("");
+  const [done, setDone] = useState(false);
+  const schedule = (minD, maxD) => {
+    try { localStorage.setItem("pp.grat.next", String(Date.now() + (minD + Math.random() * (maxD - minD)) * 864e5)); } catch {}
+  };
+  useEffect(() => {
+    let next = 0;
+    try { next = +localStorage.getItem("pp.grat.next") || 0; } catch {}
+    if (!next) { schedule(2, 8); return; }           // first sight: seed the clock, ask another day
+    if (Date.now() < next) return;
+    // due: wait for the daily question to clear, then interrupt
+    let tries = 0;
+    const iv = setInterval(() => {
+      tries++;
+      if (!document.querySelector(".dailyfull")) { clearInterval(iv); setShow(true); }
+      else if (tries > 100) clearInterval(iv);
+    }, 600);
+    return () => clearInterval(iv);
+  }, []);
+  const later = () => { schedule(1, 2.5); setShow(false); };
+  const send = async () => {
+    const t = text.trim();
+    if (!t) return;
+    try {
+      await client.from("gratitudes").insert({ text: t.slice(0, 280), created_by: me.id });
+      const partner = players.find((p) => p.id !== me.id);
+      if (partner) notifyTurn(client, partner.id, "A shout from the spire 📣", `${me.emoji} ${me.name} just said what they're grateful for. Look up 🏰`);
+    } catch {}
+    schedule(5, 12);                                  // a few times a month
+    setDone(true);
+    setTimeout(() => setShow(false), 1600);
+  };
+  if (!show) return null;
+  return createPortal(html`<div class="gratfull" onClick=${(e) => { if (e.target.classList.contains("gratfull") && !done) later(); }}>
+    <div class="daily-inner">
+      ${done ? html`
+        <div class="grat-mega">📣</div>
+        <div class="daily-q">Shouted from the spire!</div>`
+      : html`
+        <div class="daily-eyebrow">a little interruption · ${new Date().toLocaleDateString([], { weekday: "long" })}</div>
+        <div class="grat-mega">🏰</div>
+        <div class="daily-q">Right now, this exact minute, what are you grateful for?</div>
+        <textarea class="daily-input" rows="3" maxlength="280" placeholder="first thing that comes to mind..."
+          value=${text} onInput=${(e) => setText(e.target.value)}></textarea>
+        <button class="btn block grat-send" onClick=${send} disabled=${!text.trim()}>Shout it 📣</button>
+        <button class="linkbtn" onClick=${later}>not right now</button>`}
+    </div>
+  </div>`, document.body);
 }
 
 /* ---- the castle drawing ---------------------------------------------- */

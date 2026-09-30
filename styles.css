@@ -2285,3 +2285,31 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 .uno-colors .row { padding: 10px 0 6px; }
 .uno-colorbtn { width: 54px; height: 54px; border-radius: 50%; border: 3px solid #fffdfb;
   box-shadow: 0 4px 10px -4px rgba(43,37,33,.5); cursor: pointer; }
+
+/* 💌 the RSVP nudge, pinned to the castle lawn */
+.rsvp-nudge { position: absolute; left: 10px; right: 10px; bottom: 8px; z-index: 6;
+  display: flex; align-items: center; gap: 8px;
+  background: #fffdfb; border: 1.5px solid #d9a173; border-radius: 14px;
+  padding: 8px 10px; box-shadow: 0 8px 22px -10px rgba(138,90,68,.5);
+  animation: rsvpIn .45s var(--spring) both; }
+@keyframes rsvpIn { 0% { opacity: 0; transform: translateY(14px) scale(.94); }
+  100% { opacity: 1; transform: none; } }
+.rsvp-envelope { font-size: 20px; animation: rsvpWiggle 2.6s ease-in-out infinite; }
+@keyframes rsvpWiggle { 0%, 100% { transform: rotate(0); } 8% { transform: rotate(-9deg); } 16% { transform: rotate(8deg); } 24% { transform: rotate(0); } }
+.rsvp-what { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.rsvp-what b { font-size: 13px; color: #2b2521; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rsvp-what i { font-style: normal; font-size: 11px; color: #8a7a6d; }
+.rsvp-yes { border: 0; border-radius: 999px; background: #c15f3c; color: #fdf6e3;
+  font-weight: 800; font-size: 12.5px; padding: 8px 12px; cursor: pointer; white-space: nowrap; }
+.rsvp-no { border: 0; background: none; color: #8a7a6d; font-size: 12px; cursor: pointer; padding: 6px 4px; }
+.rsvp-nudge.said { justify-content: center; font-weight: 700; color: #4c8a43; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .rsvp-nudge, .rsvp-envelope { animation: none; } }
+
+/* 📣 the gratitude interrupt (daily-question family, castle voice) */
+.gratfull { position: fixed; inset: 0; z-index: 8800; display: grid; place-items: center; overflow-y: auto;
+  background: linear-gradient(180deg, #fcf7f0 0%, #f0e6da 60%, #e6ecf3 100%); color: var(--ink);
+  animation: fade .2s ease;
+  padding: calc(var(--safe-top) + 28px) 22px calc(var(--safe-bottom) + 28px); }
+.grat-mega { font-size: 44px; line-height: 1; margin: 12px 0 4px; animation: rise 3s ease-in-out infinite; }
+.grat-send { margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .grat-mega { animation: none; } }
