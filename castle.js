@@ -174,7 +174,7 @@ export function CastleHub({ client, players = [], me, balances, badges = {}, onE
         // flight is the greeting, and it shouldn't play behind a sheet
         const t00 = Date.now();
         const tryLater = () => {
-          if (document.querySelector(".dailyfull, .gratfull") && Date.now() - t00 < 60000) { flyTimer = setTimeout(tryLater, 350); return; }
+          if (document.querySelector(".dailyfull, .gratask") && Date.now() - t00 < 60000) { flyTimer = setTimeout(tryLater, 350); return; }
           // a pending invite means we stay on the ground: the 💌 card is the
           // first thing you see, no flight to carry you past it
           if (document.querySelector(".rsvp-nudge")) return;
@@ -499,7 +499,7 @@ function GratitudeAsk({ client, me, players }) {
     setTimeout(() => setShow(false), 1600);
   };
   if (!show) return null;
-  return createPortal(html`<div class="gratfull" onClick=${(e) => { if (e.target.classList.contains("gratfull") && !done) later(); }}>
+  return createPortal(html`<div class="gratask" onClick=${(e) => { if (e.target.classList.contains("gratask") && !done) later(); }}>
     <div class="daily-inner">
       ${done ? html`
         <div class="grat-mega">📣</div>

@@ -2306,7 +2306,7 @@ label.field > span { display: block; font-size: 12px; font-weight: 600; color: v
 @media (prefers-reduced-motion: reduce) { .rsvp-nudge, .rsvp-envelope { animation: none; } }
 
 /* 📣 the gratitude interrupt (daily-question family, castle voice) */
-.gratfull { position: fixed; inset: 0; z-index: 8800; display: grid; place-items: center; overflow-y: auto;
+.gratask { position: fixed; inset: 0; z-index: 8800; display: grid; place-items: center; overflow-y: auto;
   background: linear-gradient(180deg, #fcf7f0 0%, #f0e6da 60%, #e6ecf3 100%); color: var(--ink);
   animation: fade .2s ease;
   padding: calc(var(--safe-top) + 28px) 22px calc(var(--safe-bottom) + 28px); }
